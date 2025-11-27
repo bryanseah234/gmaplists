@@ -1,6 +1,7 @@
 export interface Place {
   place_name: string;
   primary_category: string;
+  detailed_category: string;
   star_rating: number;
   review_count: number;
   price_range: string;

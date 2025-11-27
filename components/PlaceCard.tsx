@@ -12,7 +12,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
       <div>
         <div className="flex justify-between items-start mb-2">
           <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 tracking-wide uppercase">
-            {place.primary_category}
+            {place.detailed_category || place.primary_category}
           </span>
           {place.accessibility && (
              <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-1.5 rounded-full" title="Wheelchair Accessible">

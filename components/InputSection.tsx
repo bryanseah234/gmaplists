@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Bookmark, Copy, MousePointerClick, CheckCircle2, Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
@@ -33,9 +34,13 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     }
   };
 
-  // We must inject the bookmarklet HTML directly to bypass React's strict security on javascript: hrefs
+  // Strictly encode the JS code so it doesn't break the href attribute with quotes
+  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+
+  // Only the link tag structure itself is dangerously set to allow the javascript: protocol 
+  // (React 19 blocks it in standard JSX), but the *content* of the href is safe.
   const bookmarkletHtml = `
-    <a href="${SCROLL_BOOKMARKLET_CODE}" 
+    <a href="${bookmarkletHref}" 
        class="inline-flex items-center gap-2 bg-white dark:bg-gray-800 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold py-3 px-4 rounded-xl hover:bg-indigo-50 dark:hover:bg-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all cursor-grab active:cursor-grabbing shadow-sm w-full justify-center"
        title="Drag me to your bookmarks bar!"
        onclick="return false;">
@@ -128,7 +133,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Install Scroller</h4>
                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">Drag this button to your Bookmarks Bar. Then click it on the map tab.</p>
                    
-                   {/* Dangerous HTML Injection to bypass React blocking javascript: protocol */}
+                   {/* Dangerous HTML Injection to bypass React blocking javascript: protocol. */}
                    <div className="w-full" dangerouslySetInnerHTML={{ __html: bookmarkletHtml }} />
                 </div>
 
