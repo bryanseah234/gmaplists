@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2, X, Copy } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
 import { getCleanListUrl } from '../services/mapLinkService';
 
@@ -22,7 +22,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   useEffect(() => {
     const valid = url.includes('google.com/') || url.includes('goo.gl/');
     setIsValidUrl(valid);
-    setCleanLink(null); // Reset clean link when URL changes
+    if (!valid) setCleanLink(null);
   }, [url]);
 
   const handleNext = async () => {
@@ -51,158 +51,150 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   // Strictly encode the JS code so it doesn't break the href attribute with quotes
   const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
 
-  const bookmarkletHtml = `
-    <a href="${bookmarkletHref}" 
-       class="inline-flex items-center gap-2 bg-blue-50 dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold py-3 px-5 rounded-xl hover:bg-blue-100 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all cursor-grab active:cursor-grabbing shadow-sm w-full justify-center"
-       title="Drag Extractor to your bookmarks bar!"
-       onclick="return false;">
-       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="fill-blue-600 dark:fill-blue-400"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-       Extractor
-    </a>
-  `;
-
   return (
-    <div className="max-w-3xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="w-full max-w-4xl mx-auto">
       
-      <div className="bg-white dark:bg-gray-900 rounded-[2rem] shadow-apple border border-gray-100 dark:border-gray-800 overflow-hidden transition-all duration-500">
+      {/* Hero Section / Initial State */}
+      <div className={`transition-all duration-700 ease-in-out ${step === 1 ? 'translate-y-20 scale-100' : 'translate-y-0'}`}>
         
-        {/* Step 1: URL Input */}
-        <div className={`p-8 sm:p-10 transition-all duration-500 ${step === 2 ? 'opacity-50 pointer-events-none bg-gray-50 dark:bg-gray-950/50 grayscale' : ''}`}>
-          <div className="flex flex-col md:flex-row md:items-center gap-8">
-             <div className="flex-shrink-0 inline-flex items-center justify-center w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-3xl text-blue-500 dark:text-blue-400 shadow-inner">
-                <MapIcon size={40} strokeWidth={1.5} />
-             </div>
-             <div className="flex-1">
-               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Start with your Map Link</h2>
-               <p className="text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
-                 Paste the link to the Google Maps list you want to organize (e.g., <code>https://maps.app.goo.gl/...</code>).
-               </p>
-               <div className="flex flex-col sm:flex-row gap-3">
-                 <input 
-                    type="text" 
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="Paste link here..."
-                    className="flex-1 p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:text-white outline-none transition-all shadow-sm font-medium"
-                    disabled={step === 2}
-                 />
-                 {step === 1 && (
-                   <button 
-                      onClick={handleNext}
-                      disabled={!isValidUrl || isResolving}
-                      className={`px-8 py-3.5 rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2 ${
-                        isValidUrl 
-                          ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none transform hover:-translate-y-0.5' 
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                      }`}
-                   >
-                      {isResolving ? <Loader2 className="animate-spin h-5 w-5" /> : <>Next <ArrowRight size={20} /></>}
-                   </button>
-                 )}
-               </div>
-               {!isValidUrl && url.length > 5 && (
-                 <p className="text-red-500 text-sm mt-3 flex items-center gap-1.5 font-medium">
-                   <AlertCircle size={14} /> Please enter a valid Google Maps link
-                 </p>
-               )}
-             </div>
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-brand-600 text-white shadow-glow shadow-brand-500/30">
+            <MapIcon size={32} strokeWidth={2} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-4 tracking-tight">
+            Organize your Maps.
+          </h1>
+          <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto leading-relaxed">
+            Turn your chaotic Google Maps lists into a clean, sortable spreadsheet in seconds.
+          </p>
+        </div>
+
+        <div className="relative max-w-2xl mx-auto">
+          <div className={`bg-white dark:bg-zinc-900 p-2 rounded-2xl shadow-2xl shadow-zinc-200/50 dark:shadow-black/50 border border-zinc-200 dark:border-zinc-800 transition-all duration-300 ${step === 2 ? 'opacity-50 pointer-events-none scale-95 grayscale' : 'scale-100'}`}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <input 
+                  type="text" 
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="Paste your Google Maps link..."
+                  className="w-full h-14 pl-5 pr-4 bg-zinc-50 dark:bg-zinc-950 border border-transparent focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-all font-medium"
+                  disabled={step === 2}
+                  onKeyDown={(e) => e.key === 'Enter' && handleNext()}
+                />
+                {url && !isValidUrl && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in fade-in zoom-in">
+                    <AlertCircle size={18} />
+                  </div>
+                )}
+              </div>
+              {step === 1 && (
+                <button 
+                  onClick={handleNext}
+                  disabled={!isValidUrl || isResolving}
+                  className="h-14 px-8 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px] shadow-lg shadow-brand-600/20"
+                >
+                  {isResolving ? <Loader2 className="animate-spin" size={20} /> : <>Start <ArrowRight size={20} /></>}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Step 2: The Wizard */}
-        {step === 2 && (
-          <div className="border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-bottom-10 duration-500 bg-white dark:bg-gray-900">
-            
-            <div className="p-8 sm:p-10 space-y-10">
-              
-              {/* Instruction Header */}
-              <div className="text-center max-w-lg mx-auto">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Ready to Extract</h3>
-                <p className="text-gray-500 dark:text-gray-400">Follow these 3 simple steps to get your data.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Action 1: Open Link */}
-                <div className={`rounded-2xl p-6 border flex flex-col items-center text-center transition-colors ${cleanLink ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/30' : 'bg-gray-50/50 dark:bg-gray-800/20 border-gray-100 dark:border-gray-800'}`}>
-                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mb-4 shadow-sm ${cleanLink ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-600'}`}>1</div>
-                   <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Open Map</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 flex-1 leading-relaxed">
-                     {cleanLink ? "Optimized view found. Use this for 100% accuracy." : "Open your list in a new tab to prepare for scrolling."}
-                   </p>
-                   
-                   <a 
-                     href={cleanLink || url} 
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className={`w-full inline-flex items-center justify-center gap-2 font-bold py-3 rounded-xl transition-all text-sm ${
-                        cleanLink 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 dark:shadow-blue-900/20 transform hover:-translate-y-0.5' 
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm'
-                     }`}
-                   >
-                     {cleanLink ? <><Sparkles size={16} /> Open Clean View</> : <>Open Map <ExternalLink size={16} /></>}
-                   </a>
-                </div>
-
-                {/* Action 2: Bookmarklet */}
-                <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-6 border border-blue-100 dark:border-blue-800/30 flex flex-col items-center text-center relative">
-                   <div className="absolute -top-3 -right-3 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md animate-bounce uppercase tracking-wide">Drag Me</div>
-                   <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-lg mb-4 shadow-sm">2</div>
-                   <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Install Extractor</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 flex-1 leading-relaxed">Drag this button to your bookmarks bar. Click it on the map tab.</p>
-                   
-                   <div className="w-full" dangerouslySetInnerHTML={{ __html: bookmarkletHtml }} />
-                </div>
-
-                {/* Action 3: Paste */}
-                <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center text-center">
-                   <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-lg mb-4 shadow-sm">3</div>
-                   <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Paste Data</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 flex-1 leading-relaxed">The extractor will copy the data automatically for you.</p>
-                   <div className="w-full py-3 flex items-center justify-center bg-white/80 dark:bg-gray-800 rounded-xl text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 text-xs font-medium cursor-default select-none">
-                      Paste below &darr;
-                   </div>
-                </div>
-
-              </div>
-
-              {/* Large Paste Area */}
-              <div className="mt-8">
-                 <textarea
-                    className="block w-full p-5 bg-gray-50 dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all duration-300 min-h-[180px] text-sm font-mono resize-none shadow-inner"
-                    placeholder="Right click > Paste (or Ctrl+V) the extracted data here..."
-                    value={pasteContent}
-                    onChange={(e) => setPasteContent(e.target.value)}
-                    disabled={isLoading}
-                 />
-                 <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
-                    <button 
-                      onClick={() => setStep(1)}
-                      className="w-full sm:w-48 px-6 py-4 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 transition-all duration-300 shadow-lg shadow-red-200 dark:shadow-none flex items-center justify-center gap-2 hover:scale-105 active:scale-95"
-                    >
-                      <XCircle size={20} /> Start Over
-                    </button>
-                    <button
-                      onClick={(e) => handleSubmit(e)}
-                      disabled={isLoading || !pasteContent}
-                      className={`w-full sm:w-48 px-6 py-4 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 ${
-                        isLoading || !pasteContent
-                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-blue-900/20 hover:scale-105 active:scale-95'
-                      }`}
-                    >
-                      {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
-                      Process List
-                    </button>
-                 </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
       </div>
+
+      {/* Progressive Disclosure: The Workflow */}
+      {step === 2 && (
+        <div className="mt-16 animate-fade-in-up">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Step 1 Card */}
+            <div className="group bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-soft hover:shadow-card transition-all duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-sm">1</span>
+                <h3 className="font-semibold text-zinc-900 dark:text-white">Open List</h3>
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
+                {cleanLink ? "Optimized view available. Use this for best results." : "Open your map in a new tab to start."}
+              </p>
+              <a 
+                href={cleanLink || url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium transition-all ${
+                  cleanLink 
+                    ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/30 border border-brand-200 dark:border-brand-800' 
+                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700'
+                }`}
+              >
+                {cleanLink ? <><Sparkles size={16} /> Clean View</> : <>Open Map <ExternalLink size={16} /></>}
+              </a>
+            </div>
+
+            {/* Step 2 Card */}
+            <div className="group bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-soft hover:shadow-card transition-all duration-300 relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-bold text-sm">2</span>
+                <h3 className="font-semibold text-zinc-900 dark:text-white">Run Extractor</h3>
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
+                Drag this button to your bookmarks bar, then click it on the map tab.
+              </p>
+              <a 
+                href={bookmarkletHref}
+                onClick={(e) => e.preventDefault()}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 cursor-grab active:cursor-grabbing transition-all"
+              >
+                <Sparkles size={16} className="fill-white/20" /> Extractor
+              </a>
+            </div>
+
+            {/* Step 3 Card */}
+            <div className="group bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-soft hover:shadow-card transition-all duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-bold text-sm">3</span>
+                <h3 className="font-semibold text-zinc-900 dark:text-white">Paste Data</h3>
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
+                The extractor will copy the data. Paste it below.
+              </p>
+              <div className="w-full py-3 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50 flex items-center justify-center text-zinc-400 dark:text-zinc-500 text-sm">
+                Paste below ↓
+              </div>
+            </div>
+
+          </div>
+
+          {/* Paste Area */}
+          <div className="mt-8 bg-white dark:bg-zinc-900 rounded-3xl p-2 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <textarea
+              className="w-full h-48 p-4 bg-zinc-50 dark:bg-black rounded-2xl border-none outline-none text-sm font-mono text-zinc-700 dark:text-zinc-300 resize-none focus:ring-2 focus:ring-brand-500/20 transition-all"
+              placeholder="Right click > Paste (or Ctrl+V) extracted data here..."
+              value={pasteContent}
+              onChange={(e) => setPasteContent(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="mt-8 flex justify-center gap-4">
+             <button 
+               onClick={() => setStep(1)}
+               className="h-12 w-40 rounded-xl bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+             >
+               Start Over
+             </button>
+             <button
+               onClick={handleSubmit}
+               disabled={!pasteContent || isLoading}
+               className="h-12 w-40 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-600/20 transition-all flex items-center justify-center gap-2"
+             >
+               {isLoading ? <Loader2 className="animate-spin" size={18} /> : "Process List"}
+             </button>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
