@@ -1,42 +1,60 @@
 # MapList
 
-MapList is a modern, privacy-focused web application designed to help you extract, visualize, and organize your saved Google Maps lists. It overcomes the limitations of the Google Maps "View" interface by turning your saved places into a sortable, filterable database.
+MapList is a powerful, privacy-focused web application designed to transform your saved map lists into a structured, sortable, and filterable database. It overcomes the interface limitations of standard map views by turning your scattered pins into a clean, spreadsheet-like grid.
 
-## 🚀 Features
+## ✨ Features
 
-### 1. Smart Extraction (No API Key Required)
-Google Maps does not provide an API to read your saved lists. MapList solves this using a clever **"Bookmarklet"** approach:
-- **Client-Side Automation:** A small JavaScript tool runs safely in your browser to auto-scroll your Google Maps list (handling the "lazy loading" problem).
-- **Clipboard Integration:** It automatically selects and copies the loaded data.
-- **AI Parsing:** The application uses advanced AI (Gemini 2.5 Flash) to parse the unstructured raw text from your clipboard into clean JSON data.
+### 1. Smart Extraction
+MapList utilizes a custom **JavaScript Bookmarklet** to bridge the gap between the map interface and your data.
+- **Auto-Scroll & Capture:** The bookmarklet intelligently scrolls through lazy-loaded lists to capture every single place.
+- **Metadata Extraction:** Extracts ratings, review counts, price tiers (`$`, `$$`), and category tags.
+- **Clean Links:** Automatically resolves and preserves deep links to specific locations.
 
-### 2. Powerful Organization
-Once extracted, your places are presented in a clean, Apple-style grid interface with features Google Maps lacks:
-- **Filtering:** Filter by Category (Cafe, Restaurant, Park) or Accessibility (Wheelchair friendly).
-- **Sorting:** Sort by Rating, Review Count (Popularity), or Price.
-- **Search:** (Implicit via filters) Quickly narrow down 1000+ places to find exactly what you want.
+### 2. Instant Parsing (Client-Side)
+Unlike other tools that rely on heavy server-side scraping or expensive APIs, MapList uses a robust **Regex-based Parsing Engine** running entirely in your browser.
+- **Zero Latency:** Processing 1,000+ places happens in milliseconds.
+- **Privacy First:** Your data never leaves your device. No API keys required.
+- **Smart Categorization:** Automatically buckets places into **Food**, **Drink**, **See**, and **Shop** based on intelligent keyword matching.
 
-### 3. Modern UI/UX
-- **Dark Mode:** Fully supported system, light, and dark themes.
-- **Responsive:** Works beautifully on desktop and tablet sizes.
-- **Privacy:** All data processing happens via the API request; no personal data is stored on our servers.
+### 3. Powerful Organization
+- **Filtering:** Instantly toggle between categories (e.g., "Show only Drink spots").
+- **Sorting:** Rank places by Popularity (Review Count), Quality (Rating), or Price.
+- **Export:** Download your curated list as a **CSV** file or copy it formatted for **Spreadsheets** with one click.
 
-## 🛠 Tech Stack
+### 4. Premium UI/UX
+- **Apple-Style Aesthetic:** Designed with a focus on clarity, typography, and glassmorphism effects.
+- **Dark Mode:** Fully responsive theme support (System, Light, Dark).
+- **Responsive:** Works seamlessly across desktops and tablets.
 
-- **Frontend:** React 19, TypeScript
-- **Styling:** Tailwind CSS (with `dark:class` support)
-- **Icons:** Lucide React
-- **AI/Backend Logic:** Google GenAI SDK (`@google/genai`) running Gemini 2.5 Flash
-- **Build Tool:** Vite (implied environment)
+## 🛠️ Tech Stack
+
+*   **Framework:** React 18+
+*   **Language:** TypeScript
+*   **Styling:** Tailwind CSS
+*   **Icons:** Lucide React
+*   **Build Tool:** Vite
+*   **Deployment:** Ready for Vercel / Netlify / Static Hosting
 
 ## 📖 How to Use
 
-1.  **Open the App:** Navigate to the MapList homepage.
-2.  **Install the Scroller:** Drag the "MapList Scroller" button to your browser's bookmarks bar.
-3.  **Go to Google Maps:** Open the shared/saved list you want to analyze in a new tab.
-4.  **Run the Scroller:** Click the bookmark. It will automatically scroll to the bottom of the list to load all items and copy the text to your clipboard.
-5.  **Paste & Visualize:** Come back to MapList, paste the text into the box, and click "Process List".
+1.  **Launch MapList:** Open the application in your browser.
+2.  **Install the Extractor:** Drag the "Extractor" button from the dashboard to your browser's bookmarks bar.
+3.  **Open Your List:** Navigate to the shared/saved map list you want to organize in a new tab.
+4.  **Run Extraction:** Click the bookmarklet. It will auto-scroll the list and present a "Copy" panel when finished.
+5.  **Process:** Paste the copied text into MapList and watch your data transform instantly.
 
-## 🎨 Theme Support
+## 🚀 Deployment
 
-Toggle between Light, Dark, and System modes using the controls in the top-right corner. The app automatically respects your operating system's preference by default.
+This project is configured as a standard Vite application.
+
+### Local Development
+```bash
+npm install
+npm run dev
+```
+
+### Production Build
+```bash
+npm run build
+# The output will be in the /dist folder, ready to be served statically.
+```
