@@ -4,7 +4,7 @@ import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
 import { IconMapper } from './components/IconMapper';
-import { ArrowUp, ArrowDown, Map as MapIcon, RotateCcw, ExternalLink, Sun, Moon, Monitor } from 'lucide-react';
+import { ArrowUp, ArrowDown, Map as MapIcon, RotateCcw, ExternalLink, Sun, Moon, Monitor, AlertTriangle } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -29,17 +29,25 @@ export default function App() {
     return 'system';
   });
 
-  // Apply Theme
+  // Apply Theme strictly
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+    
+    const applyTheme = (targetTheme: 'light' | 'dark') => {
+      if (targetTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
 
     if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
+      const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      applyTheme(systemIsDark ? 'dark' : 'light');
     } else {
-      root.classList.add(theme);
+      applyTheme(theme);
     }
+    
     localStorage.setItem('maplist-theme', theme);
   }, [theme]);
 
@@ -47,10 +55,10 @@ export default function App() {
   useEffect(() => {
     if (theme !== 'system') return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
+    const handleChange = (e: MediaQueryListEvent) => {
       const root = window.document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(mediaQuery.matches ? 'dark' : 'light');
+      if (e.matches) root.classList.add('dark');
+      else root.classList.remove('dark');
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
@@ -66,7 +74,7 @@ export default function App() {
       setActiveFilters({});
       setSortField(null);
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred while processing your data.");
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +153,7 @@ export default function App() {
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-20 border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-             <div className="bg-indigo-600 text-white p-1.5 rounded-lg">
+             <div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm">
                <MapIcon size={20} />
              </div>
              <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">MapList</h1>
@@ -192,16 +200,17 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!data ? (
-          <div className="mt-8 sm:mt-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="mt-8 sm:mt-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
              <InputSection onExtract={handleExtract} isLoading={isLoading} />
              {error && (
-                <div className="max-w-2xl mx-auto mt-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl flex items-start text-red-700 dark:text-red-300 shadow-sm animate-in zoom-in-95 duration-300">
-                   <div className="mr-3 mt-0.5 text-red-500 dark:text-red-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                <div className="max-w-3xl mx-auto mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl flex items-start text-red-700 dark:text-red-300 shadow-sm animate-in zoom-in-95 duration-300">
+                   <div className="mr-3 mt-0.5 text-red-500 dark:text-red-400 shrink-0">
+                      <AlertTriangle size={20} />
                    </div>
                    <div className="flex-1">
-                     <p className="font-semibold text-sm">Extraction Failed</p>
-                     <p className="text-sm opacity-90 mt-1 whitespace-pre-wrap">{error}</p>
+                     <p className="font-bold text-sm">Extraction Error</p>
+                     <p className="text-sm opacity-90 mt-1 whitespace-pre-wrap leading-relaxed">{error}</p>
+                     <p className="text-xs opacity-70 mt-2">Tip: Ensure you scrolled to the bottom of your list and copied the entire text selection.</p>
                    </div>
                 </div>
              )}
