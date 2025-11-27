@@ -8,6 +8,8 @@ export interface Place {
   price_range_code: number;
   accessibility: boolean;
   user_notes?: string;
+  // Added to fix error in App.tsx where google_maps_link is accessed
+  google_maps_link?: string;
 }
 
 export interface SortingOption {

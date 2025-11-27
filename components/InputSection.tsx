@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bookmark, Copy, MousePointerClick, CheckCircle2, Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle } from 'lucide-react';
+import { Bookmark, Copy, MousePointerClick, CheckCircle2, Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
+import { getCleanListUrl } from '../services/mapLinkService';
 
 interface InputSectionProps {
   onExtract: (input: string) => Promise<void>;
@@ -13,15 +14,29 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   const [url, setUrl] = useState('');
   const [pasteContent, setPasteContent] = useState('');
   const [isValidUrl, setIsValidUrl] = useState(false);
+  
+  // New state for the "Clean" link
+  const [cleanLink, setCleanLink] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
 
   // Validate URL on change
   useEffect(() => {
-    const valid = url.includes('google.com/maps') || url.includes('maps.app.goo.gl');
+    const valid = url.includes('google.com/') || url.includes('goo.gl/');
     setIsValidUrl(valid);
+    setCleanLink(null); // Reset clean link when URL changes
   }, [url]);
 
-  const handleNext = () => {
-    if (isValidUrl) setStep(2);
+  const handleNext = async () => {
+    if (isValidUrl) {
+      setIsResolving(true);
+      // Attempt to get the optimized clean link
+      const optimized = await getCleanListUrl(url);
+      if (optimized) {
+        setCleanLink(optimized);
+      }
+      setIsResolving(false);
+      setStep(2);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,10 +57,10 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   const bookmarkletHtml = `
     <a href="${bookmarkletHref}" 
        class="inline-flex items-center gap-2 bg-white dark:bg-gray-800 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold py-3 px-4 rounded-xl hover:bg-indigo-50 dark:hover:bg-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all cursor-grab active:cursor-grabbing shadow-sm w-full justify-center"
-       title="Drag me to your bookmarks bar!"
+       title="Drag Extractor to your bookmarks bar!"
        onclick="return false;">
        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="fill-indigo-600 dark:fill-indigo-400"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-       MapList Scroller
+       Extractor
     </a>
   `;
 
@@ -77,14 +92,14 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                  {step === 1 && (
                    <button 
                       onClick={handleNext}
-                      disabled={!isValidUrl}
+                      disabled={!isValidUrl || isResolving}
                       className={`px-6 py-3 rounded-xl font-semibold text-white transition-all flex items-center gap-2 ${
                         isValidUrl 
                           ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none' 
                           : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       }`}
                    >
-                      Next <ArrowRight size={18} />
+                      {isResolving ? <Loader2 className="animate-spin h-5 w-5" /> : <>Next <ArrowRight size={18} /></>}
                    </button>
                  )}
                </div>
@@ -112,26 +127,40 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Action 1: Open Link */}
-                <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-800/30 flex flex-col items-center text-center">
-                   <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold mb-3">1</div>
+                <div className={`rounded-2xl p-5 border flex flex-col items-center text-center ${cleanLink ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800/30' : 'bg-gray-50/50 dark:bg-gray-800/20 border-gray-100 dark:border-gray-800'}`}>
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3 ${cleanLink ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>1</div>
                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Open Map</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">Open your list in a new tab to prepare for scrolling.</p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">
+                     {cleanLink ? "We found an optimized view. Use this for best results." : "Open your list in a new tab to prepare for scrolling."}
+                   </p>
+                   
                    <a 
-                     href={url} 
+                     href={cleanLink || url} 
                      target="_blank" 
                      rel="noopener noreferrer"
-                     className="w-full inline-flex items-center justify-center gap-2 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700/50 font-semibold py-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-sm"
+                     className={`w-full inline-flex items-center justify-center gap-2 font-semibold py-2.5 rounded-xl transition-colors text-sm ${
+                        cleanLink 
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 dark:shadow-indigo-900/20' 
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                     }`}
                    >
-                     Open Link <ExternalLink size={14} />
+                     {cleanLink ? <><Sparkles size={14} /> Open Clean View</> : <>Open Map <ExternalLink size={14} /></>}
                    </a>
+                   {cleanLink && (
+                     <div className="mt-2">
+                        <a href={url} target="_blank" rel="noreferrer" className="text-[10px] text-gray-400 hover:underline">
+                           Or open standard view
+                        </a>
+                     </div>
+                   )}
                 </div>
 
                 {/* Action 2: Bookmarklet */}
                 <div className="bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-800/30 flex flex-col items-center text-center relative">
                    <div className="absolute -top-3 -right-3 bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm animate-bounce">DRAG ME</div>
                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 flex items-center justify-center font-bold mb-3">2</div>
-                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Install Scroller</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">Drag this button to your Bookmarks Bar. Then click it on the map tab.</p>
+                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Install Extractor</h4>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">Drag to bookmarks bar. Click it when on the map tab.</p>
                    
                    {/* Dangerous HTML Injection to bypass React blocking javascript: protocol. */}
                    <div className="w-full" dangerouslySetInnerHTML={{ __html: bookmarkletHtml }} />
@@ -141,9 +170,9 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 <div className="bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-5 border border-green-100 dark:border-green-800/30 flex flex-col items-center text-center">
                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 flex items-center justify-center font-bold mb-3">3</div>
                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Paste Data</h4>
-                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">The scroller will alert you when done. Paste the text below.</p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex-1">The extractor will copy the data automatically.</p>
                    <div className="w-full h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 text-xs">
-                      Paste area below &darr;
+                      Paste below &darr;
                    </div>
                 </div>
 

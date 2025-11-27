@@ -4,7 +4,7 @@ import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
 import { IconMapper } from './components/IconMapper';
-import { ArrowUp, ArrowDown, Map as MapIcon, RotateCcw, ExternalLink, Sun, Moon, Monitor, AlertTriangle } from 'lucide-react';
+import { ArrowUp, ArrowDown, Map as MapIcon, RotateCcw, ExternalLink, Sun, Moon, Monitor, AlertTriangle, Download, FileSpreadsheet, Check } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -19,6 +19,9 @@ export default function App() {
 
   // Filter State
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
+
+  // Export State
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
   // Theme State
   const [theme, setTheme] = useState<Theme>(() => {
@@ -147,6 +150,82 @@ export default function App() {
     return places;
   }, [data, activeFilters, sortField, sortOrder]);
 
+  // --- Export Functions ---
+
+  const escapeCsv = (str: string | number | boolean | undefined) => {
+    if (str === undefined || str === null) return '';
+    const stringValue = String(str);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  const downloadCSV = () => {
+    if (!processedPlaces.length) return;
+    
+    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Accessible', 'Notes', 'Link'];
+    const rows = processedPlaces.map(p => [
+      p.place_name,
+      p.primary_category,
+      p.detailed_category,
+      p.star_rating,
+      p.review_count,
+      p.price_range,
+      p.price_range_code || '',
+      p.accessibility ? 'Yes' : 'No',
+      p.user_notes || '',
+      p.google_maps_link || ''
+    ].map(escapeCsv).join(','));
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `maplist_export_${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const exportToSheets = () => {
+    if (!processedPlaces.length) return;
+
+    // Use Tab Separated Values for easy pasting into Sheets
+    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Accessible', 'Notes', 'Link'];
+    const rows = processedPlaces.map(p => [
+      p.place_name,
+      p.primary_category,
+      p.detailed_category,
+      p.star_rating,
+      p.review_count,
+      p.price_range,
+      p.price_range_code || '',
+      p.accessibility ? 'Yes' : 'No',
+      p.user_notes || '',
+      p.google_maps_link || ''
+    ].map(val => String(val || '').replace(/\t/g, ' ').replace(/\n/g, ' ')).join('\t'));
+
+    const tsvContent = [headers.join('\t'), ...rows].join('\n');
+    
+    navigator.clipboard.writeText(tsvContent).then(() => {
+        setCopyStatus('copied');
+        // Open new sheet
+        const win = window.open('https://sheets.new', '_blank');
+        if (win) win.focus();
+        
+        // Reset status after 3s
+        setTimeout(() => setCopyStatus('idle'), 3000);
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+        alert('Failed to copy to clipboard. Please allow clipboard permissions.');
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F7] dark:bg-gray-950 text-gray-900 dark:text-gray-100 pb-20 font-sans transition-colors duration-300">
       {/* Header */}
@@ -222,22 +301,38 @@ export default function App() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">{data.list_title || 'Extracted List'}</h2>
-                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                    <span>Found {data.places.length} places</span>
                    <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
                    <span>Showing {processedPlaces.length}</span>
                 </div>
               </div>
-              {data.list_source_url && (
-                <a 
-                  href={data.list_source_url} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-4 py-2 rounded-xl transition-colors"
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={downloadCSV}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl transition-all shadow-sm hover:shadow"
                 >
-                  Open Original Map <ExternalLink size={14} />
-                </a>
-              )}
+                  <Download size={16} />
+                  Download CSV
+                </button>
+                <button
+                  onClick={exportToSheets}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl transition-all shadow-sm hover:shadow hover:scale-105 active:scale-95"
+                >
+                  {copyStatus === 'copied' ? <Check size={16} /> : <FileSpreadsheet size={16} />}
+                  {copyStatus === 'copied' ? 'Copied! Paste in Sheets' : 'Export to Sheets'}
+                </button>
+                {data.list_source_url && (
+                  <a 
+                    href={data.list_source_url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-4 py-2 rounded-xl transition-colors"
+                  >
+                    Original Map <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Controls Bar */}

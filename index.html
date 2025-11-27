@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MapList</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Configure Tailwind before it loads
-      tailwind = {
+      // Configure Tailwind - Must be done via tailwind.config after script load
+      tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
@@ -17,7 +18,6 @@
         },
       }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       body {
