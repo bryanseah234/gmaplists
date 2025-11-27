@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bookmark, Copy, MousePointerClick, CheckCircle2, Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
 import { getCleanListUrl } from '../services/mapLinkService';
 
@@ -52,8 +52,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   // Strictly encode the JS code so it doesn't break the href attribute with quotes
   const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
 
-  // Only the link tag structure itself is dangerously set to allow the javascript: protocol 
-  // (React 19 blocks it in standard JSX), but the *content* of the href is safe.
   const bookmarkletHtml = `
     <a href="${bookmarkletHref}" 
        class="inline-flex items-center gap-2 bg-white dark:bg-gray-800 border-2 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold py-3 px-4 rounded-xl hover:bg-indigo-50 dark:hover:bg-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all cursor-grab active:cursor-grabbing shadow-sm w-full justify-center"
@@ -187,17 +185,17 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                     onChange={(e) => setPasteContent(e.target.value)}
                     disabled={isLoading}
                  />
-                 <div className="mt-4 flex justify-between items-center">
+                 <div className="mt-6 flex flex-col md:flex-row justify-center items-center gap-4">
                     <button 
                       onClick={() => setStep(1)}
-                      className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+                      className="w-full md:w-48 px-6 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-all duration-300 shadow-lg shadow-red-200 dark:shadow-none"
                     >
-                      Back to start
+                      Start Over
                     </button>
                     <button
                       onClick={(e) => handleSubmit(e)}
                       disabled={isLoading || !pasteContent}
-                      className={`px-8 py-3 rounded-xl font-bold text-white transition-all duration-300 flex items-center gap-2 ${
+                      className={`w-full md:w-48 px-6 py-3 rounded-xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 ${
                         isLoading || !pasteContent
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                           : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:scale-105 active:scale-95'

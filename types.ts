@@ -1,3 +1,4 @@
+
 export interface Place {
   place_name: string;
   primary_category: string;
@@ -6,9 +7,7 @@ export interface Place {
   review_count: number;
   price_range: string;
   price_range_code: number;
-  accessibility: boolean;
   user_notes?: string;
-  // Added to fix error in App.tsx where google_maps_link is accessed
   google_maps_link?: string;
 }
 

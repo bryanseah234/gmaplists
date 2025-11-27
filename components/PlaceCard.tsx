@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Place } from '../types';
-import { Star, Users, DollarSign, Accessibility } from 'lucide-react';
+import { Star, Users, DollarSign, MapPin } from 'lucide-react';
 
 interface PlaceCardProps {
   place: Place;
@@ -14,10 +15,16 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
           <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 tracking-wide uppercase">
             {place.detailed_category || place.primary_category}
           </span>
-          {place.accessibility && (
-             <div className="text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-1.5 rounded-full" title="Wheelchair Accessible">
-                <Accessibility size={14} />
-             </div>
+          {place.google_maps_link && (
+             <a 
+               href={place.google_maps_link}
+               target="_blank"
+               rel="noreferrer"
+               className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+               title="View on Google Maps"
+             >
+                <MapPin size={16} />
+             </a>
           )}
         </div>
         

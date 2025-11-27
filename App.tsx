@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { extractMapData } from './services/geminiService';
+import { parseMapData } from './services/parserService';
 import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
@@ -54,24 +55,12 @@ export default function App() {
     localStorage.setItem('maplist-theme', theme);
   }, [theme]);
 
-  // Listen for system changes if mode is system
-  useEffect(() => {
-    if (theme !== 'system') return;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      const root = window.document.documentElement;
-      if (e.matches) root.classList.add('dark');
-      else root.classList.remove('dark');
-    };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
-
   const handleExtract = async (input: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await extractMapData(input);
+      // Use manual parser instead of AI
+      const result = await parseMapData(input);
       setData(result);
       // Reset filters on new data
       setActiveFilters({});
@@ -124,7 +113,6 @@ export default function App() {
       if (typedValues.length > 0) {
         places = places.filter((p) => {
            const val = p[field as keyof Place];
-           // Exact match check
            return typedValues.includes(val as any);
         });
       }
@@ -164,7 +152,7 @@ export default function App() {
   const downloadCSV = () => {
     if (!processedPlaces.length) return;
     
-    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Accessible', 'Notes', 'Link'];
+    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Notes', 'Link'];
     const rows = processedPlaces.map(p => [
       p.place_name,
       p.primary_category,
@@ -173,7 +161,6 @@ export default function App() {
       p.review_count,
       p.price_range,
       p.price_range_code || '',
-      p.accessibility ? 'Yes' : 'No',
       p.user_notes || '',
       p.google_maps_link || ''
     ].map(escapeCsv).join(','));
@@ -196,7 +183,7 @@ export default function App() {
     if (!processedPlaces.length) return;
 
     // Use Tab Separated Values for easy pasting into Sheets
-    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Accessible', 'Notes', 'Link'];
+    const headers = ['Name', 'Category', 'Specific Type', 'Rating', 'Reviews', 'Price', 'Price Level', 'Notes', 'Link'];
     const rows = processedPlaces.map(p => [
       p.place_name,
       p.primary_category,
@@ -205,7 +192,6 @@ export default function App() {
       p.review_count,
       p.price_range,
       p.price_range_code || '',
-      p.accessibility ? 'Yes' : 'No',
       p.user_notes || '',
       p.google_maps_link || ''
     ].map(val => String(val || '').replace(/\t/g, ' ').replace(/\n/g, ' ')).join('\t'));
@@ -214,11 +200,13 @@ export default function App() {
     
     navigator.clipboard.writeText(tsvContent).then(() => {
         setCopyStatus('copied');
-        // Open new sheet
+        
+        // Notify user
+        alert("Data copied to clipboard!\n\n1. A new Google Sheet will open.\n2. Click cell A1.\n3. Press Ctrl+V (or Cmd+V) to paste.");
+
         const win = window.open('https://sheets.new', '_blank');
         if (win) win.focus();
         
-        // Reset status after 3s
         setTimeout(() => setCopyStatus('idle'), 3000);
     }).catch(err => {
         console.error('Failed to copy text: ', err);
@@ -239,6 +227,16 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-3">
+             {data && (
+                <button 
+                  onClick={() => setData(null)}
+                  className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <RotateCcw size={14} />
+                  <span className="hidden sm:inline">Scan Another</span>
+                </button>
+             )}
+
              {/* Theme Toggle */}
              <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
                 <button
@@ -263,16 +261,6 @@ export default function App() {
                    <Moon size={16} />
                 </button>
              </div>
-
-             {data && (
-                <button 
-                  onClick={() => setData(null)}
-                  className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <RotateCcw size={14} />
-                  <span className="hidden sm:inline">Scan Another</span>
-                </button>
-             )}
           </div>
         </div>
       </header>
@@ -335,102 +323,96 @@ export default function App() {
               </div>
             </div>
 
-            {/* Controls Bar */}
-            <div className="flex flex-col lg:flex-row gap-8">
+            {/* Controls Bar - Top Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Sidebar / Filters (Left on desktop, top on mobile) */}
-              <div className="w-full lg:w-72 flex-shrink-0 space-y-6">
-                 
-                 {/* Sorting */}
-                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
-                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Sort By</h3>
-                    <div className="space-y-1">
-                       {data.ui_config.sorting_options.map((opt) => {
-                          const isActive = sortField === opt.field;
-                          return (
-                            <button
-                              key={opt.field}
-                              onClick={() => toggleSort(opt.field as keyof Place)}
-                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                                isActive 
-                                  ? 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm' 
-                                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <IconMapper iconName={opt.icon_svg_placeholder} className={isActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500"} />
-                                {opt.label}
-                              </div>
-                              {isActive && (
-                                 <span className="bg-indigo-100 dark:bg-indigo-900/70 p-1 rounded-full text-indigo-600 dark:text-indigo-400">
-                                    {sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                                 </span>
-                              )}
-                            </button>
-                          );
-                       })}
-                    </div>
+              {/* Sorting */}
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
+                 <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Sort By</h3>
+                 <div className="flex flex-wrap gap-2">
+                    {data.ui_config.sorting_options.map((opt) => {
+                       const isActive = sortField === opt.field;
+                       return (
+                         <button
+                           key={opt.field}
+                           onClick={() => toggleSort(opt.field as keyof Place)}
+                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 ${
+                             isActive 
+                               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900/50' 
+                               : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                           }`}
+                         >
+                           <IconMapper iconName={opt.icon_svg_placeholder} className={isActive ? "text-indigo-200" : "text-gray-400 dark:text-gray-500"} />
+                           {opt.label}
+                           {isActive && (
+                              <span className="ml-1">
+                                 {sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                              </span>
+                           )}
+                         </button>
+                       );
+                    })}
                  </div>
-
-                 {/* Filter Groups */}
-                 {data.ui_config.filter_groups.map((group) => (
-                    <div key={group.field} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
-                        <div className="flex items-center gap-2 mb-4">
-                           <IconMapper iconName={group.icon_svg_placeholder} className="text-gray-400 dark:text-gray-500" />
-                           <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{group.label}</h3>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                           {group.unique_values.map((val) => {
-                              const valStr = String(val);
-                              const isSelected = (activeFilters[group.field] || []).includes(val);
-                              return (
-                                <button
-                                  key={valStr}
-                                  onClick={() => toggleFilter(group.field as string, val)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                                    isSelected
-                                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900/50'
-                                      : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                  }`}
-                                >
-                                  {valStr === 'true' ? 'Yes' : valStr === 'false' ? 'No' : valStr}
-                                </button>
-                              );
-                           })}
-                        </div>
-                    </div>
-                 ))}
-
               </div>
 
-              {/* Main Grid */}
-              <div className="flex-1">
-                 {processedPlaces.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-12 text-center border border-gray-100 dark:border-gray-800 shadow-sm transition-colors">
-                       <div className="inline-flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-800 rounded-full mb-4 text-gray-400">
-                          <MapIcon size={32} />
-                       </div>
-                       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No places match your filters</h3>
-                       <p className="text-gray-500 dark:text-gray-400">Try adjusting your selection or search criteria.</p>
-                       <button 
-                          onClick={() => setActiveFilters({})}
-                          className="mt-6 text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-                       >
-                          Clear all filters
-                       </button>
-                    </div>
-                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                       {processedPlaces.map((place, idx) => (
-                          <div key={idx} className="animate-in fade-in zoom-in-95 duration-500 fill-mode-backwards" style={{ animationDelay: `${idx * 50}ms` }}>
-                             <PlaceCard place={place} />
-                          </div>
-                       ))}
-                    </div>
-                 )}
-              </div>
+              {/* Filter Groups */}
+              {data.ui_config.filter_groups.map((group) => (
+                 <div key={group.field} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
+                     <div className="flex items-center gap-2 mb-4">
+                        <IconMapper iconName={group.icon_svg_placeholder} className="text-gray-400 dark:text-gray-500" />
+                        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{group.label}</h3>
+                     </div>
+                     <div className="flex flex-wrap gap-2">
+                        {group.unique_values.map((val) => {
+                           const valStr = String(val);
+                           const isSelected = (activeFilters[group.field] || []).includes(val);
+                           return (
+                             <button
+                               key={valStr}
+                               onClick={() => toggleFilter(group.field as string, val)}
+                               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                                 isSelected
+                                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900/50'
+                                   : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                               }`}
+                             >
+                               {valStr}
+                             </button>
+                           );
+                        })}
+                     </div>
+                 </div>
+              ))}
 
             </div>
+
+            {/* Main Grid */}
+            <div className="w-full">
+               {processedPlaces.length === 0 ? (
+                  <div className="bg-white dark:bg-gray-900 rounded-3xl p-12 text-center border border-gray-100 dark:border-gray-800 shadow-sm transition-colors">
+                     <div className="inline-flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-800 rounded-full mb-4 text-gray-400">
+                        <MapIcon size={32} />
+                     </div>
+                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No places match your filters</h3>
+                     <p className="text-gray-500 dark:text-gray-400">Try adjusting your selection or search criteria.</p>
+                     <button 
+                        onClick={() => setActiveFilters({})}
+                        className="mt-6 text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+                     >
+                        Clear all filters
+                     </button>
+                  </div>
+               ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                     {processedPlaces.map((place, idx) => (
+                        <div key={idx} className="animate-in fade-in zoom-in-95 duration-500 fill-mode-backwards" style={{ animationDelay: `${idx * 50}ms` }}>
+                           <PlaceCard place={place} />
+                        </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+
           </div>
         )}
       </main>
