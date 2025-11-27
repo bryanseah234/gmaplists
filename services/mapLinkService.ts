@@ -1,5 +1,4 @@
 
-
 /**
  * Service to extract the Google Maps List ID to generate a "Clean View" URL.
  * This URL (google.com/local/userlists/list/<ID>) is much easier to scrape.
@@ -14,8 +13,7 @@ const ID_PATTERNS = [
 
 export const getCleanListUrl = async (inputUrl: string): Promise<string | null> => {
   try {
-    // If it is already a clean URL, return null (no need to optimize) or return it normalized?
-    // We should return null if the input is ALREADY clean so the UI doesn't say "Optimized view found" when the user provided it.
+    // If it is already a clean URL, return null (no need to optimize)
     if (inputUrl.includes('/local/userlists/list/')) {
       return null; 
     }

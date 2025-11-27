@@ -1,8 +1,8 @@
-
 import { ExtractedData, Place, UIConfig } from "../types";
 
 /**
  * Parses the raw text output from the bookmarklet into structured data.
+ * This runs entirely client-side using Regex and Keyword matching (No AI).
  * 
  * @param input - The raw string pasted by the user (pipe-separated values).
  * @returns ExtractedData object containing structured places and UI config.
@@ -16,50 +16,52 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
   // This prevents the same place from appearing twice if the scroller captured it multiple times.
   const seenPlaces = new Set<string>();
 
-  // --- Categorization Logic ---
-  // Keywords used to bucket places into the 4 main categories.
-  // Priority: Drink > See > Shop > Food (Fallback)
+  /**
+   * CATEGORIZATION LOGIC
+   * Keywords used to bucket places into the 4 main categories.
+   * Priority of check: Drink > See > Shop > Food (Fallback)
+   */
   const CATEGORIES: Record<string, string[]> = {
     Drink: [
       'bar', 'cocktail', 'pub', 'brewery', 'wine', 'izakaya', 'club', 'speakeasy', 'lounge', 'taproom', 'beverage',
-      'nightclub', 'disco', 'biergarten', 'cider', 'whisky', 'sake', 'distillery', 'tavern', 'gastropub'
+      'nightclub', 'disco', 'biergarten', 'cider', 'whisky', 'sake', 'distillery', 'tavern', 'gastropub', 'vodka', 'tequila', 'rum', 'beer'
     ],
     See: [
-      // Nature & Parks
+      // Nature & Outdoors
       'park', 'garden', 'nature', 'hiking', 'trail', 'beach', 'island', 'view', 'lookout', 'scenic', 'waterfall',
-      'camp', 'glacier', 'forest', 'mountain', 'lake', 'river', 'cave', 'bay', 'reserve', 'botanical',
+      'camp', 'glacier', 'forest', 'mountain', 'lake', 'river', 'cave', 'bay', 'reserve', 'botanical', 'cliff',
+      'rock', 'volcano', 'reef', 'canyon', 'dune', 'hot spring', 'onsen', 'wildlife', 'zoo', 'aquarium',
       // Culture & History
       'museum', 'gallery', 'art', 'historic', 'landmark', 'monument', 'statue', 'castle', 'palace', 'fort',
       'temple', 'church', 'cathedral', 'mosque', 'synagogue', 'shrine', 'chapel', 'monastery', 'pagoda',
-      'cemetery', 'memorial', 'ruin', 'heritage',
+      'cemetery', 'memorial', 'ruin', 'heritage', 'archaeological', 'tomb',
       // Entertainment & Activities
       'attraction', 'theater', 'theatre', 'cinema', 'movie', 'stadium', 'arena', 'coliseum', 'racetrack',
       'casino', 'bowling', 'golf', 'gym', 'fitness', 'yoga', 'pilates', 'swim', 'pool', 'skate', 'rink',
-      'zoo', 'aquarium', 'amusement', 'theme park', 'water park', 'fairground', 'circus', 'escape room',
-      'karaoke', 'billard', 'play', 'playground',
-      // Institutions & Places
+      'amusement', 'theme park', 'water park', 'fairground', 'circus', 'escape room', 'karaoke', 'billard', 
+      'play', 'playground', 'spa', 'wellness', 'massage',
+      // Institutions & Civic
       'library', 'school', 'college', 'university', 'institute', 'academy', 'center', 'centre',
       'hall', 'auditorium', 'embassy', 'consulate', 'hospital', 'clinic', 'airport', 'station', 'terminal',
       'bridge', 'tower', 'observatory', 'observation', 'pier', 'harbor', 'port',
-      // Lodging (as a destination)
-      'hotel', 'motel', 'hostel', 'resort', 'inn', 'lodge', 'guesthouse', 'villa', 'cottage', 'apartment'
+      // Lodging (treated as 'See' contextually for travel lists)
+      'hotel', 'motel', 'hostel', 'resort', 'inn', 'lodge', 'guesthouse', 'villa', 'cottage', 'apartment', 'campground'
     ],
     Shop: [
-      // Retail Generic
+      // General Retail
       'mall', 'store', 'market', 'plaza', 'boutique', 'shop', 'outlet', 'center', 'mart', 'supermarket', 'grocery', 
-      'retail', 'dealer', 'supplier', 'wholesaler', 'distributor', 'agency', 'broker',
-      // Food Retail (Special Request to keep these in Shop)
-      'bakery', 'patisserie', 'cake', 'pastry', 'butcher', 'deli', 'convenience', 'liquor', 'wine store',
+      'retail', 'dealer', 'supplier', 'wholesaler', 'distributor', 'agency', 'broker', 'department store',
+      // Food Retail (Explicitly requested to be Shop)
+      'bakery', 'patisserie', 'cake', 'pastry', 'butcher', 'deli', 'convenience', 'liquor', 'wine store', 'cheese', 'chocolate',
       // Specific Goods
-      'fashion', 'clothing', 'shoe', 'apparel', 'jewelry', 'jeweler', 'goldsmith', 'watch',
+      'fashion', 'clothing', 'shoe', 'apparel', 'jewelry', 'jeweler', 'goldsmith', 'watch', 'accessories',
       'furniture', 'decor', 'hardware', 'diy', 'tool', 'paint', 'garden center', 'florist', 'flower',
-      'electronics', 'computer', 'phone', 'camera', 'appliance', 'music store', 'book', 'stationery',
-      'sport', 'toy', 'hobby', 'gift', 'souvenir', 'antique', 'cosmetic', 'beauty supply', 'pharmacy', 'drug store',
+      'electronics', 'computer', 'phone', 'camera', 'appliance', 'music store', 'book', 'stationery', 'gift',
+      'sport', 'toy', 'hobby', 'souvenir', 'antique', 'cosmetic', 'beauty supply', 'pharmacy', 'drug store', 'optical',
       'auto', 'car', 'motorcycle', 'vehicle', 'tire', 'parts',
-      // Services (Grouping Services under Shop/Business)
-      'salon', 'hair', 'barber', 'beauty', 'spa', 'nail', 'tattoo', 'massage',
-      'bank', 'atm', 'finance', 'insurance', 'real estate', 'legal', 'lawyer',
-      'repair', 'cleaner', 'laundry', 'tailor', 'photo', 'print', 'post', 'shipping'
+      // Services
+      'salon', 'hair', 'barber', 'beauty', 'nail', 'tattoo', 'bank', 'atm', 'finance', 'insurance', 'real estate', 
+      'legal', 'lawyer', 'repair', 'cleaner', 'laundry', 'tailor', 'photo', 'print', 'post', 'shipping'
     ],
     // Food is the default fallback for everything else (Restaurants, Cafes, etc.)
   };
@@ -71,10 +73,10 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
 
   // 2. Process each line independently
   for (const line of lines) {
-    // Skip metadata lines
+    // Skip empty or system lines
     if (!line.trim() || line.startsWith("List Name:") || line.startsWith("Extraction Complete") || line.startsWith("Found")) continue;
     
-    // Skip junk header text if captured
+    // Skip junk header text if captured by mistake
     if (line.match(/^By\s/) || line.match(/^Hello/) || line.match(/^Share/) || line.match(/^\+\d+$/)) continue;
 
     // --- Extraction: Link ---
@@ -86,6 +88,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     
     // Clean line for further processing (remove the link tag)
     const cleanLine = line.replace(/\[LINK:.*?\]/, "").trim();
+    // Split by pipe separator used in bookmarklet
     const parts = cleanLine.split("|").map(s => s.trim()).filter(s => s.length > 0);
 
     if (parts.length === 0) continue;
@@ -119,7 +122,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       }
 
       // 3. Price (e.g. "$$", "$10-20", "Ramen · $$")
-      // This handles mixed strings where price is combined with category
+      // This handles mixed strings where price is combined with category text
       if (part.includes("$")) {
         const dollarMatch = part.match(/(\$+)/); // Finds sequence of $ signs
         if (dollarMatch) {
@@ -137,7 +140,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
 
       // 4. User Notes (e.g. "Visited", "Note: ...")
       if (part.toLowerCase().includes("visited") || part.toLowerCase().includes("note:")) {
-        place.user_notes = part;
+        place.user_notes = part.replace("Note:", "").trim();
         continue;
       }
 
@@ -155,7 +158,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     // Priority Check: Drink > See > Shop
     for (const [cat, keywords] of Object.entries(CATEGORIES)) {
       if (keywords.some(k => lowerDetail.includes(k))) {
-        // Exception: "Coffee Shop" should not match "Shop", it is Food/Drink
+        // Exception: "Coffee Shop" should not match "Shop", it is Food
         if (cat === 'Shop' && (lowerDetail.includes('coffee') || lowerDetail.includes('cafe'))) {
              continue;
         }
@@ -168,7 +171,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     // Smart Defaults if no specific keyword match
     if (!foundCat) {
        if (lowerDetail.includes("hotel") || lowerDetail.includes("resort")) {
-         place.primary_category = "See"; // Or 'Stay' if you add it
+         place.primary_category = "See";
        } else {
          place.primary_category = "Food"; // Restaurants, Diners, specific cuisines default here
        }
