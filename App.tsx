@@ -128,7 +128,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `maplist_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `gmaplist_${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
   };
 
@@ -179,7 +179,7 @@ export default function App() {
              <div className="bg-brand-600 text-white p-1.5 rounded-lg">
                <MapIcon size={18} strokeWidth={2.5} />
              </div>
-             <h1 className="text-lg font-bold tracking-tight">MapList</h1>
+             <h1 className="text-lg font-bold tracking-tight">GMapList</h1>
           </div>
           
           <div className="flex items-center gap-3">

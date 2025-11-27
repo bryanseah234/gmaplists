@@ -176,11 +176,11 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
             />
           </div>
 
-          {/* Actions */}
+          {/* Actions - Centered & Red Start Over */}
           <div className="mt-8 flex justify-center gap-4">
              <button 
                onClick={() => setStep(1)}
-               className="h-12 w-40 rounded-xl bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+               className="h-12 w-40 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium shadow-lg shadow-red-500/20 transition-all"
              >
                Start Over
              </button>
