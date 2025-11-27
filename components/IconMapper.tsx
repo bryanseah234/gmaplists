@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Flame, Tag, MapPin, Accessibility, LayoutGrid, CircleHelp, AlertCircle } from 'lucide-react';
+import { Star, Flame, Tag, MapPin, Accessibility, LayoutGrid, HelpCircle, AlertCircle } from 'lucide-react';
 
 interface IconMapperProps {
   iconName: string;
@@ -17,6 +17,7 @@ export const IconMapper: React.FC<IconMapperProps> = ({ iconName, className }) =
   if (name.includes('tag') || name.includes('money') || name.includes('price')) return <Tag {...props} />;
   if (name.includes('map') || name.includes('pin')) return <MapPin {...props} />;
   if (name.includes('access') || name.includes('wheelchair')) return <Accessibility {...props} />;
+  if (name.includes('help')) return <HelpCircle {...props} />;
   
   // Defaults
   return <LayoutGrid {...props} />;
