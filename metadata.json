@@ -1,5 +1,5 @@
 {
-  "name": "MapList",
+  "name": "gmaplists",
   "description": "A modern, Apple-style web application that extracts structured data from Google Maps lists via a smart bookmarklet.",
   "requestFramePermissions": []
 }
