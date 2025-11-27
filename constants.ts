@@ -1,12 +1,13 @@
 
-// No AI System Instruction needed for parserService, but kept empty just in case
+// No AI System Instruction needed for parserService, but kept as empty string to avoid breakages
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V15 (Safe DOM + Aggressive Scroll + Generic Links + Spinner Check)
-// - Uses document.createElement only (No TrustedHTML errors)
-// - Scrolls aggressively (scrollHeight loop) and explicitly waits for spinner to disappear
-// - Finds links via generic href matching to survive class name changes
-// - Flattens text for regex parsing
+// Bookmarklet V15 (Final Production Version)
+// - Uses document.createElement only (Safe from TrustedHTML policies)
+// - Aggressive Scrolling: Waits 20s for lazy loading
+// - Spinner Detection: Won't stop if Google is loading
+// - Generic Link Extraction: Scans for google.com/search links (survives class name changes)
+// - Text Flattening: Formats data for the Regex Parser
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
     /* --- UI Creator (Safe DOM) --- */
