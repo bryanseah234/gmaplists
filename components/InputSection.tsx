@@ -185,17 +185,17 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                     onChange={(e) => setPasteContent(e.target.value)}
                     disabled={isLoading}
                  />
-                 <div className="mt-6 flex flex-col md:flex-row justify-center items-center gap-4">
+                 <div className="mt-6 flex justify-center items-center gap-4">
                     <button 
                       onClick={() => setStep(1)}
-                      className="w-full md:w-48 px-6 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-all duration-300 shadow-lg shadow-red-200 dark:shadow-none"
+                      className="w-48 px-6 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition-all duration-300 shadow-lg shadow-red-200 dark:shadow-none"
                     >
                       Start Over
                     </button>
                     <button
                       onClick={(e) => handleSubmit(e)}
                       disabled={isLoading || !pasteContent}
-                      className={`w-full md:w-48 px-6 py-3 rounded-xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 ${
+                      className={`w-48 px-6 py-3 rounded-xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 ${
                         isLoading || !pasteContent
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                           : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 hover:scale-105 active:scale-95'

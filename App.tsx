@@ -159,7 +159,7 @@ export default function App() {
       p.detailed_category,
       p.star_rating,
       p.review_count,
-      p.price_range,
+      p.price_range_code > 0 ? '$'.repeat(p.price_range_code) : '',
       p.price_range_code || '',
       p.user_notes || '',
       p.google_maps_link || ''
@@ -179,6 +179,32 @@ export default function App() {
     }
   };
 
+  // Robust fallback copy
+  const fallbackCopyTextToClipboard = (text: string) => {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      var successful = document.execCommand('copy');
+      if(successful) {
+         setCopyStatus('copied');
+         setTimeout(() => setCopyStatus('idle'), 3000);
+         alert("Data copied! Open your spreadsheet and press Ctrl+V.");
+         window.open('https://sheets.new', '_blank');
+      } else {
+         alert("Fallback copy failed.");
+      }
+    } catch (err) {
+      alert("Failed to copy");
+    }
+    document.body.removeChild(textArea);
+  }
+
   const exportToSheets = () => {
     if (!processedPlaces.length) return;
 
@@ -190,7 +216,7 @@ export default function App() {
       p.detailed_category,
       p.star_rating,
       p.review_count,
-      p.price_range,
+      p.price_range_code > 0 ? '$'.repeat(p.price_range_code) : '',
       p.price_range_code || '',
       p.user_notes || '',
       p.google_maps_link || ''
@@ -198,20 +224,19 @@ export default function App() {
 
     const tsvContent = [headers.join('\t'), ...rows].join('\n');
     
-    navigator.clipboard.writeText(tsvContent).then(() => {
-        setCopyStatus('copied');
-        
-        // Notify user
-        alert("Data copied to clipboard!\n\n1. A new Google Sheet will open.\n2. Click cell A1.\n3. Press Ctrl+V (or Cmd+V) to paste.");
-
-        const win = window.open('https://sheets.new', '_blank');
-        if (win) win.focus();
-        
-        setTimeout(() => setCopyStatus('idle'), 3000);
-    }).catch(err => {
-        console.error('Failed to copy text: ', err);
-        alert('Failed to copy to clipboard. Please allow clipboard permissions.');
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tsvContent).then(() => {
+          setCopyStatus('copied');
+          alert("Data copied to clipboard!\n\n1. A new Google Sheet will open.\n2. Click cell A1.\n3. Press Ctrl+V to paste.");
+          const win = window.open('https://sheets.new', '_blank');
+          if (win) win.focus();
+          setTimeout(() => setCopyStatus('idle'), 3000);
+      }).catch(err => {
+          fallbackCopyTextToClipboard(tsvContent);
+      });
+    } else {
+      fallbackCopyTextToClipboard(tsvContent);
+    }
   };
 
   return (
@@ -308,7 +333,7 @@ export default function App() {
                   className="inline-flex items-center gap-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl transition-all shadow-sm hover:shadow hover:scale-105 active:scale-95"
                 >
                   {copyStatus === 'copied' ? <Check size={16} /> : <FileSpreadsheet size={16} />}
-                  {copyStatus === 'copied' ? 'Copied! Paste in Sheets' : 'Export to Sheets'}
+                  {copyStatus === 'copied' ? 'Copied! Paste in Sheets' : 'Copy for Sheets'}
                 </button>
                 {data.list_source_url && (
                   <a 
@@ -323,12 +348,14 @@ export default function App() {
               </div>
             </div>
 
-            {/* Controls Bar - Top Row */}
+            {/* Controls Bar - Unified Grid Side by Side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Sorting */}
+              {/* Sorting (Styled as Horizontal Pills) */}
               <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
-                 <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Sort By</h3>
+                 <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Sort By</h3>
+                 </div>
                  <div className="flex flex-wrap gap-2">
                     {data.ui_config.sorting_options.map((opt) => {
                        const isActive = sortField === opt.field;
@@ -355,7 +382,7 @@ export default function App() {
                  </div>
               </div>
 
-              {/* Filter Groups */}
+              {/* Category Filter (Horizontal Pills) */}
               {data.ui_config.filter_groups.map((group) => (
                  <div key={group.field} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
                      <div className="flex items-center gap-2 mb-4">
