@@ -4,6 +4,7 @@ import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
 import { IconMapper } from './components/IconMapper';
+import { MobileSplash } from './components/MobileSplash';
 import { ArrowUp, ArrowDown, RotateCcw, ExternalLink, Sun, Moon, Monitor, AlertTriangle, Download, FileSpreadsheet, Check, Map as MapIcon } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -172,6 +173,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 selection:bg-brand-200 dark:selection:bg-brand-900">
       
+      <MobileSplash />
+
       {/* Refined Glass Header */}
       <header className="sticky top-0 z-30 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -227,7 +230,7 @@ export default function App() {
                   {data.list_source_url && (
                     <>
                       <span>•</span>
-                      <a href={data.list_source_url} target="_blank" className="flex items-center gap-1 hover:text-brand-600 transition-colors">
+                      <a href={data.list_source_url} target="_blank" className="flex items-center gap-1 hover:text-brand-600 transition-colors" rel="noreferrer">
                         Original Map <ExternalLink size={12} />
                       </a>
                     </>
@@ -241,13 +244,13 @@ export default function App() {
                 </button>
                 <button onClick={exportToSheets} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
                   {copyStatus === 'copied' ? <Check size={16} /> : <FileSpreadsheet size={16} />}
-                  {copyStatus === 'copied' ? 'Copied!' : 'Sheets'}
+                  {copyStatus === 'copied' ? 'Copied!' : 'Copy for Sheets'}
                 </button>
               </div>
             </div>
 
             {/* Filter & Sort Bar */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Sort */}
               <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex gap-1 overflow-x-auto scrollbar-hide">
                  <div className="px-3 flex items-center text-xs font-bold text-zinc-400 uppercase tracking-wider">Sort</div>
