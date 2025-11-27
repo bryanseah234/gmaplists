@@ -31,9 +31,17 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
 
       {/* Content */}
       <div className="flex-1">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white leading-snug mb-1 line-clamp-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-          {place.place_name}
-        </h3>
+        {place.google_maps_link ? (
+          <a href={place.google_maps_link} target="_blank" rel="noreferrer" className="block group/title">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white leading-snug mb-1 line-clamp-2 group-hover/title:text-brand-600 dark:group-hover/title:text-brand-400 transition-colors hover:underline decoration-2 underline-offset-2">
+              {place.place_name}
+            </h3>
+          </a>
+        ) : (
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white leading-snug mb-1 line-clamp-2">
+            {place.place_name}
+          </h3>
+        )}
 
         {/* Metrics */}
         <div className="flex items-center gap-4 mt-3 text-sm">

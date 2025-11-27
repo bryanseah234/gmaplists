@@ -2,17 +2,15 @@
 // No AI System Instruction needed for parserService, but kept as empty string to avoid breakages
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V15 (Final Production Version)
-// - Uses document.createElement only (Safe from TrustedHTML policies)
-// - Aggressive Scrolling: Waits 20s for lazy loading
-// - Spinner Detection: Won't stop if Google is loading
-// - Generic Link Extraction: Scans for google.com/search links (survives class name changes)
-// - Text Flattening: Formats data for the Regex Parser
+// Bookmarklet V16 (Precision Link & Scroll)
+// - Targets relative hrefs (/search?q=...) which are common in Clean View.
+// - Safe DOM creation.
+// - Aggressive lazy-loading support.
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
     /* --- UI Creator (Safe DOM) --- */
     var createUI = function(text, count) {
-      var id = "maplist-ui-panel";
+      var id = "gmaplist-ui-panel";
       var existing = document.getElementById(id);
       if (existing) existing.remove();
 
@@ -26,7 +24,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       d.appendChild(h);
 
       var p = document.createElement("p");
-      p.textContent = "Found " + count + " places. Copy to MapList.";
+      p.textContent = "Found " + count + " places. Copy to GMapList.";
       p.style.cssText = "margin:0;font-size:13px;color:#6b7280;";
       d.appendChild(p);
 
@@ -80,7 +78,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
 
     /* --- Scroller Logic --- */
     var findScrollTarget = function() {
-      // Heuristic: Find the element with the largest scrollable content height relative to window
+      // Heuristic: Find the element with the largest scrollable content height
       var candidates = document.querySelectorAll("div, [role='feed'], main");
       var best = document.scrollingElement || document.body;
       var maxScroll = 0;
@@ -97,15 +95,15 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     };
 
     var runScroller = function() {
-      alert("MapList: Scrolling started...\\n\\nDo not switch tabs. I will wait up to 20 seconds for loading to finish.");
+      alert("GMapList: Scrolling started...\\n\\nDo not switch tabs. I will wait up to 20 seconds for loading to finish.");
       
       var t = findScrollTarget();
       var a = 0, c = 0;
-      var maxRetries = 10; // 10 * 2s = 20s wait time after last movement
+      var maxRetries = 10; // 10 * 2s = 20s wait time
       
       var statusDiv = document.createElement("div");
       statusDiv.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 24px;border-radius:30px;z-index:999999;font-family:sans-serif;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-weight:500;";
-      statusDiv.textContent = "MapList: Scrolling...";
+      statusDiv.textContent = "GMapList: Scrolling...";
       document.body.appendChild(statusDiv);
 
       var s = setInterval(function() {
@@ -114,20 +112,20 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
         if (t !== document.body) window.scrollTo(0, document.body.scrollHeight);
         
         var h = t.scrollHeight;
-        // Check for Google's loading spinner class or role
+        // Check for Google's loading spinner
         var spinner = document.querySelector('[role="progressbar"]') || document.querySelector(".loading-spinner");
         
         if (h === a) {
           c++;
-          statusDiv.textContent = "MapList: Waiting... (" + c + "/" + maxRetries + ")";
+          statusDiv.textContent = "GMapList: Waiting... (" + c + "/" + maxRetries + ")";
         } else {
-          c = 0; // Reset counter if height changed (content loaded)
+          c = 0; // Reset counter if height changed
           a = h;
           var items = document.querySelectorAll("div[role='article'], a[href*='/maps/place']").length;
-          statusDiv.textContent = "MapList: Scrolling... (~" + items + " items)";
+          statusDiv.textContent = "GMapList: Scrolling... (~" + items + " items)";
         }
 
-        // Finish Condition: No height change for 20s AND no spinner visible
+        // Finish Condition
         if (c >= maxRetries && !spinner) {
           clearInterval(s);
           statusDiv.remove();
@@ -139,55 +137,50 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           
           var uniquePlaces = new Set();
           
-          // Determine content container
           var main = document.querySelector('[role="main"]');
           var feed = document.querySelector('[role="feed"]');
           var target = feed || main || document.body;
           
-          // Collect potential place nodes
-          var nodes = [];
-          if (target.children && target.children.length > 5) {
-            nodes = Array.from(target.children);
-          } else {
-            // Fallback: Find all divs if structure is obscure
-            nodes = Array.from(document.querySelectorAll("div"));
+          // Find links specifically.
+          // Selector includes relative links (/search?q=, /maps/place) common in Clean View.
+          var linkNodes = document.querySelectorAll('a[href*="/maps/place"], a[href*="/search?q="], a[href*="google.com/maps"], a[href*="google.com/search"]');
+          var validNodes = [];
+          
+          // Filter link nodes
+          linkNodes.forEach(function(node){
+             var t = node.innerText || "";
+             if (t.trim().length > 5 && !t.includes("Sign in")) {
+                validNodes.push(node);
+             }
+          });
+
+          // Fallback if no specific links found, try generic structure
+          if (validNodes.length === 0 && target.children) {
+             // Logic for when links might be wrapping text but not matched above
+             var allLinks = target.querySelectorAll('a');
+             allLinks.forEach(function(node){
+                if (node.innerText.length > 10) validNodes.push(node);
+             });
           }
 
-          for (var r = 0; r < nodes.length; r++) {
-            var item = nodes[r];
+          for (var r = 0; r < validNodes.length; r++) {
+            var item = validNodes[r];
             var rawText = item.innerText || item.textContent;
             
-            // Basic filtering to skip tiny/empty nodes
             if (!rawText || rawText.length < 10) continue;
             if (uniquePlaces.has(rawText)) continue;
             
-            // Advanced Filtering: Skip Header/Footer/UI noise
+            // Filtering
             if (titleEl && rawText.includes(titleEl.innerText)) continue;
             if (rawText.match(/^By\\s.*\\d+\\s+places/i)) continue;
             if (rawText.match(/^(Share|Follow|\\+\\d+)$/)) continue;
             if (rawText.match(/Permanently closed/i)) continue;
-            if (!rawText.match(/[0-5]\\.\\d/)) continue; // Mandatory Rating Check
+            if (!rawText.match(/[0-5]\\.\\d/)) continue; 
             
-            // Format Text: Flatten newlines to pipes for Parser
             var flatText = rawText.replace(/[\\r\\n]+/g, " | ");
             
-            // Link Finding: Look for any anchor pointing to Google Maps
-            var lnk = "";
-            var anchors = item.querySelectorAll("a");
-            for(var k=0; k<anchors.length; k++){
-               var href = anchors[k].href;
-               if(href && (
-                   href.includes("google.com/maps") || 
-                   href.includes("/maps/place") || 
-                   href.includes("google.com/search") // Common in Clean View
-               )){
-                 lnk = href; 
-                 break; // Found the main link
-               }
-            }
-            // Fallback: Check if the item itself is the link
-            if(!lnk && item.tagName === "A" && item.href.includes("google")) lnk = item.href;
-
+            // Capture the href from the node itself since we iterated anchors
+            var lnk = item.href;
             if (lnk) flatText += " [LINK: " + lnk + "]";
             
             txt += flatText + "\\n\\n";
@@ -196,7 +189,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           }
 
           if (cnt === 0 && txt.length < 50) {
-             txt = "Error: Could not find places. Try switching to the 'Clean View' or check if the list is empty.";
+             txt = "Error: Could not find places. Try switching to the 'Clean View'.";
           }
           
           createUI(txt, cnt);
@@ -206,10 +199,8 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
 
     /* --- Main Execution --- */
     if (window.location.href.includes("/local/userlists/list/")) {
-       // Already on clean view
        runScroller();
     } else {
-       // Check if we can optimize view
        var html = document.documentElement.innerHTML;
        var id = null;
        var m1 = html.match(/\\[null,"([a-zA-Z0-9_-]+)",3\\]/);
@@ -220,7 +211,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
        }
        
        if (id && id.length > 10) {
-         if (confirm("MapList: Optimize View?\\n\\nSwitching to 'Clean View' is faster and more accurate.")) {
+         if (confirm("GMapList: Optimize View?\\n\\nSwitching to 'Clean View' is faster and more accurate.")) {
            window.location.href = "https://www.google.com/local/userlists/list/" + id;
          } else {
            runScroller();
@@ -230,6 +221,6 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
        }
     }
   } catch (e) {
-    alert("MapList Error: " + e);
+    alert("GMapList Error: " + e);
   }
 })();`;

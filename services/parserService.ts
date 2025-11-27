@@ -13,18 +13,17 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
   let listTitle = "My Saved Places";
   
   // Deduplication Set: Stores unique signature "Name|Category|ReviewCount"
-  // This prevents the same place from appearing twice if the scroller captured it multiple times.
   const seenPlaces = new Set<string>();
 
   /**
    * CATEGORIZATION LOGIC
    * Keywords used to bucket places into the 4 main categories.
-   * Priority of check: Drink > See > Shop > Food (Fallback)
+   * Priority of check: Drink > See > Shop > Food > Other (Fallback)
    */
   const CATEGORIES: Record<string, string[]> = {
     Drink: [
       'bar', 'cocktail', 'pub', 'brewery', 'wine', 'izakaya', 'club', 'speakeasy', 'lounge', 'taproom', 'beverage',
-      'nightclub', 'disco', 'biergarten', 'cider', 'whisky', 'sake', 'distillery', 'tavern', 'gastropub', 'vodka', 'tequila', 'rum', 'beer'
+      'nightclub', 'disco', 'biergarten', 'cider', 'whisky', 'sake', 'distillery', 'tavern', 'gastropub', 'vodka', 'tequila', 'rum', 'beer', 'drink'
     ],
     See: [
       // Nature & Outdoors
@@ -51,19 +50,28 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       // General Retail
       'mall', 'store', 'market', 'plaza', 'boutique', 'shop', 'outlet', 'center', 'mart', 'supermarket', 'grocery', 
       'retail', 'dealer', 'supplier', 'wholesaler', 'distributor', 'agency', 'broker', 'department store',
+      // Vision / Medical Retail
+      'optician', 'optical', 'glasses', 'eyewear', 'contact lens', 'pharmacy', 'drug store', 'chemist', 'medicine',
       // Food Retail (Explicitly requested to be Shop)
       'bakery', 'patisserie', 'cake', 'pastry', 'butcher', 'deli', 'convenience', 'liquor', 'wine store', 'cheese', 'chocolate',
       // Specific Goods
       'fashion', 'clothing', 'shoe', 'apparel', 'jewelry', 'jeweler', 'goldsmith', 'watch', 'accessories',
       'furniture', 'decor', 'hardware', 'diy', 'tool', 'paint', 'garden center', 'florist', 'flower',
       'electronics', 'computer', 'phone', 'camera', 'appliance', 'music store', 'book', 'stationery', 'gift',
-      'sport', 'toy', 'hobby', 'souvenir', 'antique', 'cosmetic', 'beauty supply', 'pharmacy', 'drug store', 'optical',
+      'sport', 'toy', 'hobby', 'souvenir', 'antique', 'cosmetic', 'beauty supply',
       'auto', 'car', 'motorcycle', 'vehicle', 'tire', 'parts',
       // Services
       'salon', 'hair', 'barber', 'beauty', 'nail', 'tattoo', 'bank', 'atm', 'finance', 'insurance', 'real estate', 
       'legal', 'lawyer', 'repair', 'cleaner', 'laundry', 'tailor', 'photo', 'print', 'post', 'shipping'
     ],
-    // Food is the default fallback for everything else (Restaurants, Cafes, etc.)
+    Food: [
+      'restaurant', 'cafe', 'coffee', 'diner', 'bistro', 'kitchen', 'eatery', 'buffet', 'steak', 'grill', 'bbq',
+      'ramen', 'sushi', 'udon', 'soba', 'tempura', 'noodle', 'dumpling', 'dim sum', 'hot pot',
+      'pizza', 'burger', 'pasta', 'sandwich', 'bagel', 'taco', 'burrito',
+      'ice cream', 'gelato', 'dessert', 'yogurt', 'pancake', 'waffle', 'crepe',
+      'chinese', 'japanese', 'korean', 'thai', 'vietnamese', 'italian', 'french', 'spanish', 'mexican', 'indian',
+      'hawker', 'food court', 'stall'
+    ]
   };
 
   // 1. Extract List Title
@@ -95,7 +103,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
 
     const place: Place = {
       place_name: parts[0] || "Unknown Place",
-      primary_category: "Food", // Default
+      primary_category: "Other", // Default fallback is now "Other"
       detailed_category: "Place",
       star_rating: 0,
       review_count: 0,
@@ -155,7 +163,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     const lowerDetail = place.detailed_category.toLowerCase();
     
     let foundCat = false;
-    // Priority Check: Drink > See > Shop
+    // Priority Check: Drink > See > Shop > Food
     for (const [cat, keywords] of Object.entries(CATEGORIES)) {
       if (keywords.some(k => lowerDetail.includes(k))) {
         // Exception: "Coffee Shop" should not match "Shop", it is Food
@@ -168,18 +176,16 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       }
     }
     
-    // Smart Defaults if no specific keyword match
+    // If not found in specific keywords, check if it's a generic "Hotel" (See)
     if (!foundCat) {
        if (lowerDetail.includes("hotel") || lowerDetail.includes("resort")) {
          place.primary_category = "See";
-       } else {
-         place.primary_category = "Food"; // Restaurants, Diners, specific cuisines default here
        }
     }
     
     // --- Deduplication ---
     // Only add if we haven't seen this place before.
-    // Uses Name + Rating + Reviews as a unique signature to distinguish branches of same chain.
+    // Uses Name + Rating + Reviews as a unique signature.
     if (place.star_rating > 0) {
       const uniqueKey = `${place.place_name.toLowerCase()}|${place.star_rating}|${place.review_count}`;
       
@@ -191,6 +197,7 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
   }
 
   // Define UI Configuration for the frontend filters
+  // Note: "Other" is excluded from unique_values so it doesn't create a button, satisfying the "don't show unaccounted categories" requirement.
   const ui_config: UIConfig = {
     sorting_options: [
       { field: "star_rating", "label": "Rating", "icon_svg_placeholder": "star" },
