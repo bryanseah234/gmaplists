@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { parseMapData } from './services/parserService';
 import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
 import { IconMapper } from './components/IconMapper';
 import { MobileSplash } from './components/MobileSplash';
-import { ArrowUp, ArrowDown, RotateCcw, ExternalLink, Sun, Moon, Monitor, AlertTriangle, Download, FileSpreadsheet, Check, Map as MapIcon } from 'lucide-react';
+import { ArrowUp, ArrowDown, RotateCcw, ExternalLink, Sun, Moon, Monitor, Download, FileSpreadsheet, Check, Map as MapIcon } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -187,8 +187,7 @@ export default function App() {
           
           <div className="flex items-center gap-3">
              {data && (
-                <button 
-                  onClick={() => setData(null)}
+                <button type="button" onClick={() => setData(null)}
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all"
                 >
                   <RotateCcw size={14} />
@@ -203,6 +202,9 @@ export default function App() {
                   return (
                     <button
                       key={t}
+                      type="button"
+                      aria-label={`Switch to ${t} theme`}
+                      title={`Switch to ${t} theme`}
                       onClick={() => setTheme(t)}
                       className={`p-1.5 rounded-full transition-all ${theme === t ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
                     >
@@ -239,10 +241,10 @@ export default function App() {
               </div>
               
               <div className="flex gap-3">
-                <button onClick={downloadCSV} className="h-10 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center gap-2">
+                <button type="button" onClick={downloadCSV} className="h-10 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center gap-2">
                   <Download size={16} /> CSV
                 </button>
-                <button onClick={exportToSheets} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
+                <button type="button" onClick={exportToSheets} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
                   {copyStatus === 'copied' ? <Check size={16} /> : <FileSpreadsheet size={16} />}
                   {copyStatus === 'copied' ? 'Copied!' : 'Copy for Sheets'}
                 </button>
@@ -258,6 +260,7 @@ export default function App() {
                    const isActive = sortField === opt.field;
                    return (
                      <button
+                       type="button"
                        key={opt.field}
                        onClick={() => toggleSort(opt.field as keyof Place)}
                        className={`flex-1 min-w-[100px] px-3 py-2 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
@@ -281,6 +284,7 @@ export default function App() {
                       const isActive = (activeFilters[group.field] || []).includes(val);
                       return (
                         <button
+                          type="button"
                           key={String(val)}
                           onClick={() => toggleFilter(group.field as string, val)}
                           className={`flex-1 min-w-[80px] px-3 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -310,7 +314,7 @@ export default function App() {
                     <MapIcon size={32} />
                  </div>
                  <p className="text-zinc-500">No places match your filters.</p>
-                 <button onClick={() => setActiveFilters({})} className="mt-4 text-brand-600 hover:underline text-sm font-medium">Clear Filters</button>
+                 <button type="button" onClick={() => setActiveFilters({})} className="mt-4 text-brand-600 hover:underline text-sm font-medium">Clear Filters</button>
               </div>
             )}
 
