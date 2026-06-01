@@ -141,26 +141,21 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
             <div className="group bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-soft hover:shadow-card transition-all duration-300 relative overflow-hidden">
               <div className="flex items-center gap-3 mb-4">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-bold text-sm">2</span>
-                <h3 className="font-semibold text-zinc-900 dark:text-white">Run Extractor</h3>
+                <h3 className="font-semibold text-zinc-900 dark:text-white">Save Bookmarklet</h3>
               </div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
-                Drag this button to your bookmarks bar. Open your Google Maps list, then click it.
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
+                Right-click the button below and choose <span className="font-semibold text-zinc-700 dark:text-zinc-300">"Bookmark link"</span> to save it to your bookmarks bar.
               </p>
-              <a 
+              <a
                 ref={bookmarkletRef}
-                draggable="true"
                 onClick={(e) => e.preventDefault()}
-                onDragStart={(e) => {
-                  // Explicitly set drag data so browser treats this as a link drag, not a text selection
-                  if (bookmarkletRef.current) {
-                    e.dataTransfer.setData('text/uri-list', bookmarkletRef.current.href);
-                    e.dataTransfer.setData('text/plain', bookmarkletRef.current.href);
-                  }
-                }}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 cursor-grab active:cursor-grabbing transition-all select-none"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 transition-all select-none cursor-pointer"
               >
-                <Sparkles size={16} className="fill-white/20" /> Extractor
+                <Sparkles size={16} className="fill-white/20" /> GMapList Extractor
               </a>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-3 text-center">
+                Then open any Google Maps saved list and click it in your bookmarks bar.
+              </p>
             </div>
 
             {/* Step 3 Card */}
@@ -212,6 +207,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
 
 
 
