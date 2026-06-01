@@ -148,8 +148,16 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
               </p>
               <a 
                 ref={bookmarkletRef}
+                draggable="true"
                 onClick={(e) => e.preventDefault()}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 cursor-grab active:cursor-grabbing transition-all"
+                onDragStart={(e) => {
+                  // Explicitly set drag data so browser treats this as a link drag, not a text selection
+                  if (bookmarkletRef.current) {
+                    e.dataTransfer.setData('text/uri-list', bookmarkletRef.current.href);
+                    e.dataTransfer.setData('text/plain', bookmarkletRef.current.href);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 cursor-grab active:cursor-grabbing transition-all select-none"
               >
                 <Sparkles size={16} className="fill-white/20" /> Extractor
               </a>
@@ -204,5 +212,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
 
 
