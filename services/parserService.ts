@@ -1,3 +1,4 @@
+import { parseApiJson } from "./apiParserService";
 import { ExtractedData, Place, UIConfig } from "../types";
 
 /**
@@ -8,6 +9,12 @@ import { ExtractedData, Place, UIConfig } from "../types";
  * @returns ExtractedData object containing structured places and UI config.
  */
 export const parseMapData = async (input: string): Promise<ExtractedData> => {
+  // Auto-detect: if input starts with )]}'  or [ it's API JSON, not DOM text
+  const trimmed = input.trim();
+  if (trimmed.startsWith(")]}") || (trimmed.startsWith("[[") && trimmed.includes('"place_name"') === false)) {
+    return parseApiJson(input);
+  }
+
   const lines = input.split(/\n+/);
   const places: Place[] = [];
   let listTitle = "My Saved Places";
