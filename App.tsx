@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { parseMapData } from './services/parserService';
+import { parseApiJson } from './services/apiParserService';
 import { ExtractedData, Place, SortOrder, ActiveFilters } from './types';
 import { InputSection } from './components/InputSection';
 import { PlaceCard } from './components/PlaceCard';
@@ -40,6 +41,30 @@ export default function App() {
     }
     localStorage.setItem('maplist-theme', theme);
   }, [theme]);
+
+  // Listen for data posted by the bookmarklet (zero-paste flow)
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (msg?.type !== 'GMAPLIST_DATA' || !msg.data) return;
+        setIsLoading(true);
+        setError(null);
+        // Reconstruct the raw JSON string and parse via apiParserService
+        const raw = ")]}'\n" + JSON.stringify(msg.data);
+        const result = parseApiJson(raw);
+        setData(result);
+        setActiveFilters({});
+        setSortField(null);
+        setIsLoading(false);
+      } catch (e: any) {
+        setError('Failed to receive data from bookmarklet: ' + e.message);
+        setIsLoading(false);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   const handleExtract = async (input: string) => {
     setIsLoading(true);
@@ -324,3 +349,4 @@ export default function App() {
     </div>
   );
 }
+
