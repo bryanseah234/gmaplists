@@ -64,12 +64,12 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     };
 
     var buildUrl = function(baseUrl, cursor) {
-      var pbMatch = baseUrl.match(/([?&]pb=)([^&]+)/);
+      var pbMatch = baseUrl.match(new RegExp("([?&]pb=)([^&]+)"));
       if (!pbMatch) return baseUrl;
       var pb = decodeURIComponent(pbMatch[2]);
-      pb = pb.replace(/!4i\d+/, "!4i500").replace(/!5B[^!]*/g, "");
+      pb = pb.replace(new RegExp("!4i\\d+"), "!4i500").replace(new RegExp("!5B[^!]*","g"), "");
       if (cursor) {
-        var safe = cursor.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        var safe = cursor.split("+").join("-").split("/").join("_").split("=").join("");
         pb = pb.replace("!4i500", "!4i500!5B" + safe);
       }
       return baseUrl.replace(pbMatch[0], pbMatch[1] + encodeURIComponent(pb));
@@ -123,7 +123,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           return r.text();
         })
         .then(function(text) {
-          var body = text.replace(/^\)\]\}['\x22]\s*\n?/, "");
+          var body = text.replace(new RegExp("^\\)\\]\\}['\x22]\\s*\\n?"), "");
           var data;
           try { data = JSON.parse(body); } catch(e) {
             removeStatus();
@@ -162,4 +162,5 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     alert("GMapList Error: " + e.message + "\n" + e.stack);
   }
 })();`;
+
 
