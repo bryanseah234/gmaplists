@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2, X, Copy } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
 import { getCleanListUrl } from '../services/mapLinkService';
@@ -48,8 +48,14 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     }
   };
 
-  // Strictly encode the JS code so it doesn't break the href attribute with quotes
-  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+  // Use a ref to set the href directly on the DOM node — React 19 blocks javascript: URLs
+  // in JSX props as a security measure, but direct DOM assignment is fine for bookmarklets.
+  const bookmarkletRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (bookmarkletRef.current) {
+      bookmarkletRef.current.href = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+    }
+  }, []);
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -141,7 +147,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 Drag this button to your bookmarks bar. Open your Google Maps list, then click it.
               </p>
               <a 
-                href={bookmarkletHref}
+                ref={bookmarkletRef}
                 onClick={(e) => e.preventDefault()}
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 cursor-grab active:cursor-grabbing transition-all"
               >
@@ -156,7 +162,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 <h3 className="font-semibold text-zinc-900 dark:text-white">Paste Data</h3>
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
-                The bookmarklet auto-fetches all pages and copies the JSON. Paste it below.
+                The bookmarklet fetches all pages and sends data directly to this tab. No pasting needed.
               </p>
               <div className="w-full py-3 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50 flex items-center justify-center text-zinc-400 dark:text-zinc-500 text-sm">
                 Paste below ↓
@@ -169,7 +175,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
           <div className="mt-8 bg-white dark:bg-zinc-900 rounded-3xl p-2 border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <textarea
               className="w-full h-48 p-4 bg-zinc-50 dark:bg-black rounded-2xl border-none outline-none text-sm font-mono text-zinc-700 dark:text-zinc-300 resize-none focus:ring-2 focus:ring-brand-500/20 transition-all"
-              placeholder="Paste the JSON copied by the bookmarklet here (supports 1000+ places)..."
+              placeholder="Data arrives automatically from the bookmarklet — or paste JSON here manually."
               value={pasteContent}
               onChange={(e) => setPasteContent(e.target.value)}
               disabled={isLoading}
@@ -198,3 +204,5 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
+

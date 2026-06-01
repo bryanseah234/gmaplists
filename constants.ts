@@ -1,11 +1,13 @@
 // No AI System Instruction needed for parserService
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V20 (API-Based — correct URL encoding + total-count termination)
-// pb param is URL-encoded so we decode/manipulate/re-encode.
-// Terminates when allPlaces.length >= total (data[0][12]) or no cursor.
+// Bookmarklet V21 (postMessage — zero paste UX)
+// Fetches all pages then opens/focuses GMapList tab and postMessages data directly.
+// User clicks bookmarklet on Maps → GMapList auto-opens and populates. No copy-paste.
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
+    var APP_URL = "https://gmaplists.vercel.app";
+
     var showStatus = function(msg) {
       var id = "gml-status";
       var el = document.getElementById(id);
@@ -21,54 +23,12 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       var el = document.getElementById("gml-status");
       if (el) el.remove();
     };
-    var showCopyUI = function(jsonText, count) {
-      removeStatus();
-      var id = "gml-panel";
-      var ex = document.getElementById(id);
-      if (ex) ex.remove();
-      var d = document.createElement("div");
-      d.id = id;
-      d.style.cssText = "position:fixed;top:20px;right:20px;width:360px;background:#fff;color:#111;z-index:2147483647;padding:20px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);font-family:sans-serif;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:12px;";
-      var h = document.createElement("div");
-      h.innerHTML = "<span style=\"font-size:16px;font-weight:700;\">GMapList &mdash; Done!</span>";
-      d.appendChild(h);
-      var p = document.createElement("p");
-      p.textContent = "Fetched " + count + " places. Copy & paste into GMapList.";
-      p.style.cssText = "margin:0;font-size:13px;color:#6b7280;";
-      d.appendChild(p);
-      var ta = document.createElement("textarea");
-      ta.value = jsonText;
-      ta.style.cssText = "width:100%;height:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:10px;background:#f9fafb;color:#374151;resize:none;font-family:monospace;box-sizing:border-box;";
-      ta.readOnly = true;
-      d.appendChild(ta);
-      var btn = document.createElement("button");
-      btn.textContent = "Copy JSON";
-      btn.style.cssText = "background:#4f46e5;color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;";
-      btn.onclick = function() {
-        var fb = function() { ta.select(); document.execCommand("copy"); btn.textContent = "Copied!"; btn.style.background = "#10b981"; };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(jsonText).then(function(){ btn.textContent = "Copied!"; btn.style.background = "#10b981"; }).catch(fb);
-        } else { fb(); }
-      };
-      d.appendChild(btn);
-      var close = document.createElement("button");
-      close.textContent = "Close";
-      close.style.cssText = "background:transparent;color:#6b7280;border:1px solid #e5e7eb;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;";
-      close.onclick = function() { d.remove(); };
-      d.appendChild(close);
-      document.body.appendChild(d);
-    };
 
-    /* Build a page URL: decode pb, inject !4i500 + optional cursor, re-encode */
     var buildUrl = function(baseUrl, cursor) {
       var pbMatch = baseUrl.match(/([?&]pb=)([^&]+)/);
       if (!pbMatch) return baseUrl;
       var pb = decodeURIComponent(pbMatch[2]);
-      /* Set page size to 500 */
-      pb = pb.replace(/!4i\d+/, "!4i500");
-      /* Strip any existing cursor token */
-      pb = pb.replace(/!5B[^!]*/g, "");
-      /* Inject new cursor if provided */
+      pb = pb.replace(/!4i\d+/, "!4i500").replace(/!5B[^!]*/g, "");
       if (cursor) {
         var safe = cursor.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
         pb = pb.replace("!4i500", "!4i500!5B" + safe);
@@ -76,7 +36,6 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       return baseUrl.replace(pbMatch[0], pbMatch[1] + encodeURIComponent(pb));
     };
 
-    /* Find getlist URL from perf entries — works on ANY list the user has open */
     var getlistUrl = null;
     var entries = performance.getEntriesByType("resource");
     for (var i = 0; i < entries.length; i++) {
@@ -93,6 +52,34 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     var allPlaces = [];
     var firstData = null;
 
+    var sendToApp = function() {
+      removeStatus();
+      if (firstData && firstData[0]) firstData[0][8] = allPlaces;
+      var payload = JSON.stringify({
+        type: "GMAPLIST_DATA",
+        data: firstData
+      });
+      /* Try to postMessage to an already-open GMapList tab */
+      var appWin = window.open(APP_URL, "gmaplists");
+      var attempts = 0;
+      var send = function() {
+        attempts++;
+        try {
+          appWin.postMessage(payload, APP_URL);
+          showStatus("GMapList: Sent " + allPlaces.length + " places to app!");
+          setTimeout(removeStatus, 3000);
+        } catch(e) {
+          if (attempts < 10) setTimeout(send, 400);
+          else {
+            removeStatus();
+            alert("GMapList: Could not send to app tab. Please refresh GMapList and try again.");
+          }
+        }
+      };
+      /* Give the tab time to load if it was freshly opened */
+      setTimeout(send, 800);
+    };
+
     var fetchPage = function(url, pageNum) {
       showStatus("GMapList: Fetching page " + pageNum + " (" + allPlaces.length + " places so far)...");
       fetch(url, { credentials: "include" })
@@ -105,20 +92,16 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           var data;
           try { data = JSON.parse(body); } catch(e) {
             removeStatus();
-            alert("GMapList: Could not parse response (page " + pageNum + ").\nTry refreshing the list and clicking again.");
+            alert("GMapList: Could not parse response (page " + pageNum + ").\nTry refreshing the list page and clicking again.");
             return;
           }
           if (pageNum === 1) firstData = data;
-
-          /* Places at data[0][8] — confirmed from live API */
           var raw = (data[0] && Array.isArray(data[0][8])) ? data[0][8] : [];
           var valid = raw.filter(function(p) {
             return Array.isArray(p) && typeof p[2] === "string" && p[2].length > 0;
           });
           allPlaces = allPlaces.concat(valid);
           showStatus("GMapList: " + allPlaces.length + " places fetched...");
-
-          /* Total from data[0][12], cursor from data[1] */
           var total = (data[0] && typeof data[0][12] === "number") ? data[0][12] : 0;
           var cursor = null;
           var r1 = data[1];
@@ -126,15 +109,10 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
             if (typeof r1 === "string" && r1.length > 8) cursor = r1;
             else if (Array.isArray(r1) && typeof r1[0] === "string" && r1[0].length > 8) cursor = r1[0];
           }
-
-          /* Stop when we have all places or no cursor */
           if (cursor && allPlaces.length < total) {
-            var next = buildUrl(getlistUrl, cursor);
-            setTimeout(function() { fetchPage(next, pageNum + 1); }, 350);
+            setTimeout(function() { fetchPage(buildUrl(getlistUrl, cursor), pageNum + 1); }, 350);
           } else {
-            if (firstData && firstData[0]) firstData[0][8] = allPlaces;
-            var output = ")]}'\n" + JSON.stringify(firstData);
-            showCopyUI(output, allPlaces.length);
+            sendToApp();
           }
         })
         .catch(function(err) {
