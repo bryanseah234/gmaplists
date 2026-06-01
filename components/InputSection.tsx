@@ -12,7 +12,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
   const [copied, setCopied] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
 
-  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE.replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim())}`;
 
   const copyBookmarklet = () => {
     navigator.clipboard.writeText(bookmarkletHref).then(() => {
@@ -154,3 +154,4 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
