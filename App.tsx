@@ -13,6 +13,7 @@ type Theme = 'light' | 'dark' | 'system';
 export default function App() {
   const [data, setData] = useState<ExtractedData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<keyof Place | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -44,10 +45,12 @@ export default function App() {
 
   // Listen for data posted by the bookmarklet (zero-paste flow)
   useEffect(() => {
+    setIsReceiving(true);
     const handler = (event: MessageEvent) => {
       try {
         const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (msg?.type !== 'GMAPLIST_DATA' || !msg.data) return;
+        setIsReceiving(false);
         setIsLoading(true);
         setError(null);
         // Reconstruct the raw JSON string and parse via apiParserService
@@ -244,7 +247,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-12">
         {!data ? (
-          <InputSection onExtract={handleExtract} isLoading={isLoading} />
+          <InputSection onExtract={handleExtract} isLoading={isLoading} isReceiving={isReceiving} />
         ) : (
           <div className="animate-fade-in-up space-y-8">
             
@@ -349,4 +352,5 @@ export default function App() {
     </div>
   );
 }
+
 
