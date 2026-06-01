@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2, X, Copy } from 'lucide-react';
+import { Loader2, Map as MapIcon, ExternalLink, ArrowRight, AlertCircle, Sparkles, CheckCircle2, X, Copy, Check } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
 import { getCleanListUrl } from '../services/mapLinkService';
 
@@ -48,14 +48,14 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     }
   };
 
-  // Use a ref to set the href directly on the DOM node — React 19 blocks javascript: URLs
-  // in JSX props as a security measure, but direct DOM assignment is fine for bookmarklets.
-  const bookmarkletRef = useRef<HTMLAnchorElement>(null);
-  useEffect(() => {
-    if (bookmarkletRef.current) {
-      bookmarkletRef.current.href = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
-    }
-  }, []);
+  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+  const copyBookmarklet = () => {
+    navigator.clipboard.writeText(bookmarkletHref).then(() => {
+      setBookmarkletCopied(true);
+      setTimeout(() => setBookmarkletCopied(false), 2500);
+    });
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -143,18 +143,24 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-bold text-sm">2</span>
                 <h3 className="font-semibold text-zinc-900 dark:text-white">Save Bookmarklet</h3>
               </div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
-                Right-click the button below and choose <span className="font-semibold text-zinc-700 dark:text-zinc-300">"Bookmark link"</span> to save it to your bookmarks bar.
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+                Add the bookmarklet to your browser in <span className="font-semibold text-zinc-700 dark:text-zinc-300">2 steps:</span>
               </p>
-              <a
-                ref={bookmarkletRef}
-                onClick={(e) => e.preventDefault()}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 transition-all select-none cursor-pointer"
+              <ol className="text-sm text-zinc-500 dark:text-zinc-400 mb-4 space-y-2 list-none">
+                <li className="flex gap-2"><span className="font-bold text-brand-600">1.</span> Click <span className="font-semibold text-zinc-700 dark:text-zinc-300">Bookmarks → Bookmark manager</span> (or press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">Ctrl+Shift+O</kbd>)</li>
+                <li className="flex gap-2"><span className="font-bold text-brand-600">2.</span> Click <span className="font-semibold text-zinc-700 dark:text-zinc-300">⋮ → Add new bookmark</span>, paste the copied URL into the URL field, name it <span className="font-semibold text-zinc-700 dark:text-zinc-300">GMapList</span>, save.</li>
+              </ol>
+              <button
+                onClick={copyBookmarklet}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 shadow-lg shadow-brand-500/20 transition-all select-none"
               >
-                <Sparkles size={16} className="fill-white/20" /> GMapList Extractor
-              </a>
+                {bookmarkletCopied
+                  ? <><Check size={16} /> Copied! Now paste into Bookmark Manager</>
+                  : <><Copy size={16} /> Copy Bookmarklet URL</>
+                }
+              </button>
               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-3 text-center">
-                Then open any Google Maps saved list and click it in your bookmarks bar.
+                Once saved, open any Google Maps list and click <span className="font-semibold">GMapList</span> in your bookmarks bar.
               </p>
             </div>
 
@@ -207,6 +213,8 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
+
 
 
 
