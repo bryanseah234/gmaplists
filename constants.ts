@@ -4,7 +4,7 @@ export const SYSTEM_INSTRUCTION = ``;
 // Bookmarklet V23 — fix innerHTML double-quote syntax error, use DOM textContent instead
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
-    var APP_URL = "https://gmaplists.vercel.app";
+    var APP_URL = "https://gmaplist.hong-yi.me";
 
     var showStatus = function(msg) {
       var id = "gml-status";
@@ -104,7 +104,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
         attempts++;
         try {
           if (appWin.closed) { showCopyUI(fallbackJson, allPlaces.length); return; }
-          appWin.postMessage(payload, APP_URL);
+          appWin.postMessage(payload, "*");
           showStatus("Sent " + allPlaces.length + " places to GMapList!");
           setTimeout(removeStatus, 3000);
         } catch(e) {
@@ -162,3 +162,4 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     alert("GMapList Error: " + e.message + "\n" + e.stack);
   }
 })();`;
+
