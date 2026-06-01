@@ -1,15 +1,23 @@
-﻿import { ExtractedData, Place, UIConfig } from "../types";
+import { ExtractedData, Place, UIConfig } from "../types";
 
 /**
- * Parses the structured JSON payload returned by the getlist internal API.
- * Called when the user pastes JSON (not pipe-separated DOM text).
+ * Parses the raw JSON from the Google Maps getlist internal API.
+ * Strip ")]}'" prefix before calling, or pass raw — we strip here.
  *
- * Response shape (after stripping ")]}'\n" prefix):
- *   root[0][0][5]  = list title
- *   root[0][2]     = places array (each item is a place entry)
- *     place[2]     = place name string
- *     place[3]     = user note string (e.g. "Visited", "")
- *     place[1][7]  = /g/ path for Maps link
+ * Confirmed field map (from live network capture):
+ *   data[0][0][0]  = list ID
+ *   data[0][4]     = list title (string)
+ *   data[0][8]     = places array (up to 500 per page)
+ *   data[1]        = next-page cursor (string, absent on last page)
+ *
+ *   Per place entry p = data[0][8][i]:
+ *     p[2]        = place name
+ *     p[3]        = user note (e.g. "Visited", "")
+ *     p[1][2]     = full address
+ *     p[1][4]     = short address
+ *     p[1][5]     = [null, null, lat, lon]
+ *     p[1][7]     = /g/ path (e.g. "/g/11btvg9hby") for Maps link
+ *     p[12]       = added_by: [name, avatarUrl, userId]
  */
 
 const CATEGORIES: Record<string, string[]> = {
@@ -47,18 +55,18 @@ function detectCategory(name: string, note: string): { primary: string; detailed
   return { primary: "Food", detailed: "Restaurant" };
 }
 
-function buildMapsLink(entry: any[]): string {
+function buildMapsLink(p: any[]): string {
   try {
-    const loc = entry[1];
+    const loc = p[1];
     if (!loc) return "";
     const gPath = loc[7];
-    if (gPath && typeof gPath === "string" && gPath.startsWith("/g/")) {
+    if (typeof gPath === "string" && gPath.startsWith("/g/")) {
       return `https://www.google.com/maps${gPath}`;
     }
-    const name = entry[2] ?? "";
     const lat = loc[5]?.[2];
     const lon = loc[5]?.[3];
-    if (lat && lon) {
+    const name = p[2] ?? "";
+    if (lat != null && lon != null) {
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
     }
   } catch {}
@@ -66,28 +74,29 @@ function buildMapsLink(entry: any[]): string {
 }
 
 export function parseApiJson(raw: string): ExtractedData {
-  const stripped = raw.replace(/^\)\]\}'\s*\n?/, "");
+  const stripped = raw.replace(/^\)\]\}['"]\s*\n?/, "");
   const root = JSON.parse(stripped) as any[];
 
-  const listMeta = root[0]?.[0] ?? [];
-  const listTitle: string = listMeta[5] ?? "Saved Places";
-  const listId: string = listMeta[0] ?? "";
+  const d0 = root[0] ?? [];
+  const listId: string = d0[0]?.[0] ?? "";
+  const listTitle: string = typeof d0[4] === "string" ? d0[4] : "Saved Places";
   const listUrl = listId
     ? `https://www.google.com/maps/placelists/list/${listId}`
     : "https://www.google.com/maps/saved";
 
-  const placesRaw: any[] = root[0]?.[2] ?? [];
+  // Places are at data[0][8] — confirmed from live response
+  const placesRaw: any[] = Array.isArray(d0[8]) ? d0[8] : [];
   const places: Place[] = [];
   const seen = new Set<string>();
 
-  for (const entry of placesRaw) {
-    if (!Array.isArray(entry)) continue;
-    const name: string = entry[2];
+  for (const p of placesRaw) {
+    if (!Array.isArray(p)) continue;
+    const name: string = p[2];
     if (!name || typeof name !== "string") continue;
     if (seen.has(name)) continue;
     seen.add(name);
 
-    const userNote: string = entry[3] ?? "";
+    const userNote: string = typeof p[3] === "string" ? p[3] : "";
     const { primary, detailed } = detectCategory(name, userNote);
 
     places.push({
@@ -99,7 +108,7 @@ export function parseApiJson(raw: string): ExtractedData {
       price_range: "",
       price_range_code: 0,
       user_notes: userNote || undefined,
-      google_maps_link: buildMapsLink(entry),
+      google_maps_link: buildMapsLink(p),
     });
   }
 
@@ -134,4 +143,3 @@ function buildUIConfig(places: Place[]): UIConfig {
     ],
   };
 }
-

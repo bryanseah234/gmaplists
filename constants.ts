@@ -1,11 +1,9 @@
 // No AI System Instruction needed for parserService
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V18 (API-Based — getlist interceptor, any list)
-// Works on any Google Maps saved list the user has open.
-// Reads the already-fired getlist URL from performance entries,
-// fetches all pages (500/page) via cursor pagination.
-// No DOM scraping. Works on private, collaborative, any list.
+// Bookmarklet V20 (API-Based — correct URL encoding + total-count termination)
+// pb param is URL-encoded so we decode/manipulate/re-encode.
+// Terminates when allPlaces.length >= total (data[0][12]) or no cursor.
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
     var showStatus = function(msg) {
@@ -61,6 +59,23 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       document.body.appendChild(d);
     };
 
+    /* Build a page URL: decode pb, inject !4i500 + optional cursor, re-encode */
+    var buildUrl = function(baseUrl, cursor) {
+      var pbMatch = baseUrl.match(/([?&]pb=)([^&]+)/);
+      if (!pbMatch) return baseUrl;
+      var pb = decodeURIComponent(pbMatch[2]);
+      /* Set page size to 500 */
+      pb = pb.replace(/!4i\d+/, "!4i500");
+      /* Strip any existing cursor token */
+      pb = pb.replace(/!5B[^!]*/g, "");
+      /* Inject new cursor if provided */
+      if (cursor) {
+        var safe = cursor.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        pb = pb.replace("!4i500", "!4i500!5B" + safe);
+      }
+      return baseUrl.replace(pbMatch[0], pbMatch[1] + encodeURIComponent(pb));
+    };
+
     /* Find getlist URL from perf entries — works on ANY list the user has open */
     var getlistUrl = null;
     var entries = performance.getEntriesByType("resource");
@@ -75,8 +90,6 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       return;
     }
 
-    /* Normalize: force 500-item pages, strip any existing cursor */
-    var baseUrl = getlistUrl.replace(/!4i\d+/, "!4i500").replace(/!5B[^!]*/g, "");
     var allPlaces = [];
     var firstData = null;
 
@@ -88,7 +101,6 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           return r.text();
         })
         .then(function(text) {
-          /* Strip XSSI prefix )]}' or )]}" followed by optional whitespace/newline */
           var body = text.replace(/^\)\]\}['\x22]\s*\n?/, "");
           var data;
           try { data = JSON.parse(body); } catch(e) {
@@ -98,15 +110,16 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
           }
           if (pageNum === 1) firstData = data;
 
-          /* Extract valid place entries from this page */
-          var raw = (data[0] && Array.isArray(data[0][2])) ? data[0][2] : [];
+          /* Places at data[0][8] — confirmed from live API */
+          var raw = (data[0] && Array.isArray(data[0][8])) ? data[0][8] : [];
           var valid = raw.filter(function(p) {
             return Array.isArray(p) && typeof p[2] === "string" && p[2].length > 0;
           });
           allPlaces = allPlaces.concat(valid);
           showStatus("GMapList: " + allPlaces.length + " places fetched...");
 
-          /* Find next-page cursor at root[1] — only present when more pages exist */
+          /* Total from data[0][12], cursor from data[1] */
+          var total = (data[0] && typeof data[0][12] === "number") ? data[0][12] : 0;
           var cursor = null;
           var r1 = data[1];
           if (r1) {
@@ -114,14 +127,12 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
             else if (Array.isArray(r1) && typeof r1[0] === "string" && r1[0].length > 8) cursor = r1[0];
           }
 
-          /* Paginate whenever cursor exists — cursor is the source of truth */
-          if (cursor) {
-            var safe = cursor.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-            var next = baseUrl.replace("!4i500", "!4i500!5B" + safe);
+          /* Stop when we have all places or no cursor */
+          if (cursor && allPlaces.length < total) {
+            var next = buildUrl(getlistUrl, cursor);
             setTimeout(function() { fetchPage(next, pageNum + 1); }, 350);
           } else {
-            /* No more pages — merge all places into firstData and output */
-            if (firstData && firstData[0]) firstData[0][2] = allPlaces;
+            if (firstData && firstData[0]) firstData[0][8] = allPlaces;
             var output = ")]}'\n" + JSON.stringify(firstData);
             showCopyUI(output, allPlaces.length);
           }
@@ -132,7 +143,7 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
         });
     };
 
-    fetchPage(baseUrl, 1);
+    fetchPage(buildUrl(getlistUrl, null), 1);
 
   } catch(e) {
     alert("GMapList Error: " + e.message + "\n" + e.stack);
