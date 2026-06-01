@@ -1,9 +1,7 @@
 // No AI System Instruction needed for parserService
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V21 (postMessage — zero paste UX)
-// Fetches all pages then opens/focuses GMapList tab and postMessages data directly.
-// User clicks bookmarklet on Maps → GMapList auto-opens and populates. No copy-paste.
+// Bookmarklet V22 (postMessage with copy-UI fallback if popup blocked)
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
     var APP_URL = "https://gmaplists.vercel.app";
@@ -22,6 +20,44 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     var removeStatus = function() {
       var el = document.getElementById("gml-status");
       if (el) el.remove();
+    };
+
+    var showCopyUI = function(jsonText, count) {
+      removeStatus();
+      var id = "gml-panel";
+      var ex = document.getElementById(id);
+      if (ex) ex.remove();
+      var d = document.createElement("div");
+      d.id = id;
+      d.style.cssText = "position:fixed;top:20px;right:20px;width:360px;background:#fff;color:#111;z-index:2147483647;padding:20px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);font-family:sans-serif;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:12px;";
+      var h = document.createElement("div");
+      h.innerHTML = "<span style=\"font-size:16px;font-weight:700;\">GMapList &mdash; Done!</span>";
+      d.appendChild(h);
+      var p = document.createElement("p");
+      p.textContent = "Popup was blocked. Copy this and paste into GMapList.";
+      p.style.cssText = "margin:0;font-size:13px;color:#6b7280;";
+      d.appendChild(p);
+      var ta = document.createElement("textarea");
+      ta.value = jsonText;
+      ta.style.cssText = "width:100%;height:90px;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:10px;background:#f9fafb;color:#374151;resize:none;font-family:monospace;box-sizing:border-box;";
+      ta.readOnly = true;
+      d.appendChild(ta);
+      var btn = document.createElement("button");
+      btn.textContent = "Copy JSON (" + count + " places)";
+      btn.style.cssText = "background:#4f46e5;color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;";
+      btn.onclick = function() {
+        var fb = function() { ta.select(); document.execCommand("copy"); btn.textContent = "Copied!"; btn.style.background = "#10b981"; };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(jsonText).then(function(){ btn.textContent = "Copied!"; btn.style.background = "#10b981"; }).catch(fb);
+        } else { fb(); }
+      };
+      d.appendChild(btn);
+      var close = document.createElement("button");
+      close.textContent = "Close";
+      close.style.cssText = "background:transparent;color:#6b7280;border:1px solid #e5e7eb;padding:8px;border-radius:8px;cursor:pointer;font-size:12px;";
+      close.onclick = function() { d.remove(); };
+      d.appendChild(close);
+      document.body.appendChild(d);
     };
 
     var buildUrl = function(baseUrl, cursor) {
@@ -55,29 +91,38 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
     var sendToApp = function() {
       removeStatus();
       if (firstData && firstData[0]) firstData[0][8] = allPlaces;
-      var payload = JSON.stringify({
-        type: "GMAPLIST_DATA",
-        data: firstData
-      });
-      /* Try to postMessage to an already-open GMapList tab */
-      var appWin = window.open(APP_URL, "gmaplists");
+      var payload = JSON.stringify({ type: "GMAPLIST_DATA", data: firstData });
+      var fallbackJson = ")]}'\n" + JSON.stringify(firstData);
+
+      /* Try postMessage to app tab */
+      var appWin = null;
+      try { appWin = window.open(APP_URL, "gmaplists"); } catch(e) { appWin = null; }
+
+      /* Popup was blocked: window.open returns null or a window with null location */
+      if (!appWin || appWin.closed) {
+        showCopyUI(fallbackJson, allPlaces.length);
+        return;
+      }
+
       var attempts = 0;
-      var send = function() {
+      var trySend = function() {
         attempts++;
+        /* If the window got blocked after open (some browsers return non-null but blocked) */
         try {
+          if (appWin.closed) { showCopyUI(fallbackJson, allPlaces.length); return; }
           appWin.postMessage(payload, APP_URL);
-          showStatus("GMapList: Sent " + allPlaces.length + " places to app!");
+          showStatus("Sent " + allPlaces.length + " places to GMapList!");
           setTimeout(removeStatus, 3000);
         } catch(e) {
-          if (attempts < 10) setTimeout(send, 400);
-          else {
-            removeStatus();
-            alert("GMapList: Could not send to app tab. Please refresh GMapList and try again.");
+          if (attempts < 10) {
+            setTimeout(trySend, 400);
+          } else {
+            /* postMessage kept failing — fall back to copy UI */
+            showCopyUI(fallbackJson, allPlaces.length);
           }
         }
       };
-      /* Give the tab time to load if it was freshly opened */
-      setTimeout(send, 800);
+      setTimeout(trySend, 800);
     };
 
     var fetchPage = function(url, pageNum) {
