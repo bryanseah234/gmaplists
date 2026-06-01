@@ -1,7 +1,7 @@
 // No AI System Instruction needed for parserService
 export const SYSTEM_INSTRUCTION = ``;
 
-// Bookmarklet V22 (postMessage with copy-UI fallback if popup blocked)
+// Bookmarklet V23 — fix innerHTML double-quote syntax error, use DOM textContent instead
 export const SCROLL_BOOKMARKLET_CODE = `(function(){
   try {
     var APP_URL = "https://gmaplists.vercel.app";
@@ -31,10 +31,13 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       d.id = id;
       d.style.cssText = "position:fixed;top:20px;right:20px;width:360px;background:#fff;color:#111;z-index:2147483647;padding:20px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);font-family:sans-serif;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:12px;";
       var h = document.createElement("div");
-      h.innerHTML = "<span style=\"font-size:16px;font-weight:700;\">GMapList &mdash; Done!</span>";
+      var titleSpan = document.createElement("span");
+      titleSpan.textContent = "GMapList \u2014 Done!";
+      titleSpan.style.cssText = "font-size:16px;font-weight:700;";
+      h.appendChild(titleSpan);
       d.appendChild(h);
       var p = document.createElement("p");
-      p.textContent = "Popup was blocked. Copy this and paste into GMapList.";
+      p.textContent = "Popup blocked. Copy & paste into GMapList.";
       p.style.cssText = "margin:0;font-size:13px;color:#6b7280;";
       d.appendChild(p);
       var ta = document.createElement("textarea");
@@ -93,33 +96,20 @@ export const SCROLL_BOOKMARKLET_CODE = `(function(){
       if (firstData && firstData[0]) firstData[0][8] = allPlaces;
       var payload = JSON.stringify({ type: "GMAPLIST_DATA", data: firstData });
       var fallbackJson = ")]}'\n" + JSON.stringify(firstData);
-
-      /* Try postMessage to app tab */
       var appWin = null;
       try { appWin = window.open(APP_URL, "gmaplists"); } catch(e) { appWin = null; }
-
-      /* Popup was blocked: window.open returns null or a window with null location */
-      if (!appWin || appWin.closed) {
-        showCopyUI(fallbackJson, allPlaces.length);
-        return;
-      }
-
+      if (!appWin || appWin.closed) { showCopyUI(fallbackJson, allPlaces.length); return; }
       var attempts = 0;
       var trySend = function() {
         attempts++;
-        /* If the window got blocked after open (some browsers return non-null but blocked) */
         try {
           if (appWin.closed) { showCopyUI(fallbackJson, allPlaces.length); return; }
           appWin.postMessage(payload, APP_URL);
           showStatus("Sent " + allPlaces.length + " places to GMapList!");
           setTimeout(removeStatus, 3000);
         } catch(e) {
-          if (attempts < 10) {
-            setTimeout(trySend, 400);
-          } else {
-            /* postMessage kept failing — fall back to copy UI */
-            showCopyUI(fallbackJson, allPlaces.length);
-          }
+          if (attempts < 10) setTimeout(trySend, 400);
+          else showCopyUI(fallbackJson, allPlaces.length);
         }
       };
       setTimeout(trySend, 800);
