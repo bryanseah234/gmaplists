@@ -138,7 +138,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 <h3 className="font-semibold text-zinc-900 dark:text-white">Run Extractor</h3>
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
-                Drag this button to your bookmarks bar, then click it on the map tab.
+                Drag this button to your bookmarks bar. Open your Google Maps list, then click it.
               </p>
               <a 
                 href={bookmarkletHref}
@@ -156,7 +156,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
                 <h3 className="font-semibold text-zinc-900 dark:text-white">Paste Data</h3>
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 min-h-[40px]">
-                The extractor will copy the data. Paste it below.
+                The bookmarklet auto-fetches all pages and copies the JSON. Paste it below.
               </p>
               <div className="w-full py-3 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50 flex items-center justify-center text-zinc-400 dark:text-zinc-500 text-sm">
                 Paste below ↓
@@ -169,7 +169,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
           <div className="mt-8 bg-white dark:bg-zinc-900 rounded-3xl p-2 border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <textarea
               className="w-full h-48 p-4 bg-zinc-50 dark:bg-black rounded-2xl border-none outline-none text-sm font-mono text-zinc-700 dark:text-zinc-300 resize-none focus:ring-2 focus:ring-brand-500/20 transition-all"
-              placeholder="Right click > Paste (or Ctrl+V) extracted data here..."
+              placeholder="Paste the JSON copied by the bookmarklet here (supports 1000+ places)..."
               value={pasteContent}
               onChange={(e) => setPasteContent(e.target.value)}
               disabled={isLoading}
