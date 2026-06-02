@@ -36,7 +36,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
           <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
             <Loader2 size={40} className="animate-spin text-brand-600" />
             <p className="text-zinc-800 dark:text-white font-semibold text-lg">Processing your list...</p>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Parsing places from the bookmarklet data</p>
+            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Fetching categories, ratings &amp; prices...</p>
           </div>
         </div>
       )}
@@ -84,10 +84,11 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
             <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">Run on Maps</h3>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            Open any <span className="font-medium text-zinc-700 dark:text-zinc-300">Google Maps saved list</span>, wait for it to load, then click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
+            Open a <span className="font-medium text-zinc-700 dark:text-zinc-300">Google Maps saved list</span>, wait for it to load. <span className="font-medium text-zinc-700 dark:text-zinc-300">Click any one place</span> on the map to load its details, then click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
           </p>
-          <div className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-medium select-none">
-            <Sparkles size={14} /> Click bookmarklet on Maps tab
+          <div className="mt-auto flex items-center gap-1.5 w-full py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3">
+            <span className="text-amber-500 text-xs">⚠</span>
+            <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Click one place first — required for rich categories, ratings &amp; prices</span>
           </div>
         </div>
 
@@ -154,5 +155,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     </div>
   );
 };
+
 
 
