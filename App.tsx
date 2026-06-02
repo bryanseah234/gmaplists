@@ -58,7 +58,7 @@ export default function App() {
         setIsLoading(true);
         setError(null);
         const raw = ")]}'\n" + JSON.stringify(msg.data);
-        const result = parseApiJson(raw);
+        const result = parseApiJson(raw, msg.meta);
         ingestData(result);
       } catch (e) {
         setError('Failed to parse bookmarklet data: ' + String(e));
@@ -201,4 +201,5 @@ export default function App() {
     </div>
   );
 }
+
 
