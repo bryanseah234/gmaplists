@@ -407,6 +407,13 @@ export function parseApiJson(raw: string): ExtractedData {
   const listId: string = data?.[0]?.[0]?.[0] ?? "";
   const rawPlaces: any[] = data?.[0]?.[8] ?? [];
   const metaArr: any[] = data?.[0]?.[99] ?? [];
+  console.log("[gmaplist] rawPlaces:", rawPlaces.length, "metaArr:", metaArr.length);
+  if (metaArr.length > 0) {
+    console.log("[gmaplist] metaArr[0] sample:", JSON.stringify(metaArr[0]));
+  } else {
+    console.warn("[gmaplist] metaArr is EMPTY — enrichment data did not survive postMessage");
+    console.log("[gmaplist] data[0] keys:", Object.keys(data?.[0] ?? {}).join(", "));
+  }
 
   const places: Place[] = [];
 
@@ -453,8 +460,9 @@ export function parseApiJson(raw: string): ExtractedData {
       if (!detailed) detailed = iconSlug.charAt(0).toUpperCase() + iconSlug.slice(1);
     }
 
-    // 4. Uncategorised — explicit, visible
+    // 4. Unsorted - explicit, visible
     if (!primary) primary = "Unsorted";
+    if (i < 3) console.log("[gmaplist] place[" + i + "] gcid=" + gcid + " type=" + typeLabel + " icon=" + iconSlug + " -> " + primary);
     if (!detailed) detailed = primary === "Unsorted" ? "Unknown" : primary;
 
     const addedAt: number | undefined =
@@ -497,5 +505,8 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
+
+
+
 
 

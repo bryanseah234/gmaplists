@@ -11,10 +11,12 @@ interface KanbanColumnProps {
   places: Place[];
   listTitle: string;
   onCategoryChange?: (placeName: string, newCategory: string) => void;
+  /** Unsorted row — cards flow in a wrapping horizontal grid */
+  horizontal?: boolean;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
-  id, label, emoji, places, listTitle, onCategoryChange,
+  id, label, emoji, places, listTitle, onCategoryChange, horizontal,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [copied, setCopied] = useState(false);
@@ -66,7 +68,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const bgColor = dropBg[id] ?? dropBg.Unsorted;
 
   return (
-    <div className={`flex flex-col rounded-2xl border-2 transition-colors duration-150 min-w-[220px] max-w-[280px] w-full
+    <div className={`flex flex-col rounded-2xl border-2 transition-colors duration-150 ${horizontal ? "w-full" : "w-full"}
       ${isOver ? "border-brand-400 dark:border-brand-500" : accent}
       ${isOver ? "bg-brand-50 dark:bg-brand-950/20" : bgColor}
     `}>
@@ -107,7 +109,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       {!collapsed && (
         <div
           ref={setNodeRef}
-          className={`flex flex-col gap-1.5 px-2 pb-3 min-h-[80px] transition-colors
+          className={`${horizontal ? "flex flex-row flex-wrap gap-1.5" : "flex flex-col gap-1.5"} px-2 pb-3 min-h-[80px] transition-colors
             ${isOver ? "bg-brand-50/50 dark:bg-brand-950/10 rounded-xl" : ""}
           `}
         >
@@ -132,5 +134,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     </div>
   );
 };
+
 
 
