@@ -396,7 +396,7 @@ function buildMapsLink(p: any[]): string {
   } catch { return ""; }
 }
 
-export function parseApiJson(raw: string): ExtractedData {
+export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
   const body = raw.replace(/^\)\]\}'\n?/, "");
   let data: any;
   try { data = JSON.parse(body); } catch { data = raw; }
@@ -406,13 +406,14 @@ export function parseApiJson(raw: string): ExtractedData {
   const listUrl: string = data?.[0]?.[2]?.[2] ?? "";
   const listId: string = data?.[0]?.[0]?.[0] ?? "";
   const rawPlaces: any[] = data?.[0]?.[8] ?? [];
-  const metaArr: any[] = data?.[0]?.[99] ?? [];
+  // meta comes as a separate top-level key in the GMAPLIST_DATA payload
+  // (not stuffed into data[0][99] which gets dropped by sparse array serialisation)
+  const metaArr: any[] = meta ?? [];
   console.log("[gmaplist] rawPlaces:", rawPlaces.length, "metaArr:", metaArr.length);
   if (metaArr.length > 0) {
     console.log("[gmaplist] metaArr[0] sample:", JSON.stringify(metaArr[0]));
   } else {
-    console.warn("[gmaplist] metaArr is EMPTY — enrichment data did not survive postMessage");
-    console.log("[gmaplist] data[0] keys:", Object.keys(data?.[0] ?? {}).join(", "));
+    console.warn("[gmaplist] metaArr EMPTY — enrichment data missing");
   }
 
   const places: Place[] = [];
@@ -505,6 +506,8 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
+
+
 
 
 
