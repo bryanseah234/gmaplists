@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { parseMapData } from './services/parserService';
 import { parseApiJson } from './services/apiParserService';
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces } from './services/storageService';
@@ -47,6 +47,13 @@ export default function App() {
     saveListMeta(result.list_id, result.list_title, result.places.length);
   }, []);
 
+  // Sync URL to list slug
+  const pushListUrl = useCallback((listId: string) => {
+    if (listId && window.location.pathname !== '/' + listId) {
+      window.history.pushState({ listId }, '', '/' + listId);
+    }
+  }, []);
+
   // Listen for postMessage from bookmarklet
   useEffect(() => {
     setIsReceiving(true);
@@ -60,6 +67,7 @@ export default function App() {
         const raw = ")]}'\n" + JSON.stringify(msg.data);
         const result = parseApiJson(raw, msg.meta);
         ingestData(result);
+        pushListUrl(result.list_id);
       } catch (e) {
         setError('Failed to parse bookmarklet data: ' + String(e));
       } finally {
@@ -83,6 +91,7 @@ export default function App() {
         result = await Promise.resolve(parseMapData(trimmed));
       }
       ingestData(result);
+      pushListUrl(result.list_id);
     } catch (e) {
       setError('Could not parse the data. Make sure you copied the full output.');
     } finally {
@@ -201,5 +210,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
