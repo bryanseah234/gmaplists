@@ -73,6 +73,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               emoji={col.emoji}
               places={grouped[col.id] ?? []}
               listTitle={data.list_title}
+              onCategoryChange={onCategoryChange}
             />
           ))}
         </div>
@@ -89,3 +90,4 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     </div>
   );
 };
+

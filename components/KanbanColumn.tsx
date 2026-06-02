@@ -10,10 +10,11 @@ interface KanbanColumnProps {
   emoji: string;
   places: Place[];
   listTitle: string;
+  onCategoryChange?: (placeName: string, newCategory: string) => void;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
-  id, label, emoji, places, listTitle,
+  id, label, emoji, places, listTitle, onCategoryChange,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [copied, setCopied] = useState(false);
@@ -116,7 +117,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </div>
           ) : (
             places.map((place) => (
-              <KanbanCard key={place.place_name} place={place} columnId={id} />
+              <KanbanCard key={place.place_name} place={place} columnId={id} onCategoryChange={onCategoryChange} />
             ))
           )}
         </div>
@@ -131,3 +132,4 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     </div>
   );
 };
+
