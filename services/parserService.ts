@@ -117,7 +117,8 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       price_range: "",
       price_range_code: 0,
       user_notes: "",
-      google_maps_link: link
+      google_maps_link: link,
+      is_override: false,
     };
 
     // --- Extraction: Fields ---
@@ -222,9 +223,12 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
   };
 
   return {
+    list_id: '',
     list_title: listTitle,
     list_source_url: "",
     ui_config,
     places
   };
 };
+
+

@@ -1,131 +1,374 @@
 import { ExtractedData, Place, UIConfig } from "../types";
 
-/**
- * Parses the raw JSON from the Google Maps getlist internal API.
- * Strip ")]}\'" prefix before calling, or pass raw — we strip here.
- *
- * Confirmed field map (from live network capture):
- *   data[0][4]     = list title (string)
- *   data[0][5]     = list description
- *   data[0][8]     = places array (up to 500 per page)
- *   data[0][12]    = total place count
- *   data[1]        = next-page cursor (string, absent on last page)
- *
- *   Per place entry p = data[0][8][i]:
- *     p[2]        = place name
- *     p[3]        = user note (e.g. "Visited", "")
- *     p[1][2]     = full address
- *     p[1][4]     = short address
- *     p[1][5]     = [null, null, lat, lon]
- *     p[1][6]     = [hi_decimal, lo_signed_decimal] — encodes hex place ID
- *     p[1][7]     = /g/ path (e.g. "/g/11btvg9hby")
- *     p[9]        = [unix_ts_seconds, ns] — timestamp when place was added
- *     p[12]       = added_by: [name, avatarUrl, userId]
- *
- *   Enriched fields (added by bookmarklet via /maps/preview/place):
- *     p.__type    = Google place type label (e.g. "Ramen restaurant")
- *     p.__rating  = star rating (number)
- *     p.__reviews = review count (number)
- *     p.__price   = price string (e.g. "$10–30")
- */
+// ─── gcid -> primary category ────────────────────────────────────────────────
+// Google's canonical place category IDs (gcid:*) mapped to our 5 buckets.
+// Priority: gcid > type_label > suffix_rules > name_keywords > Uncategorised
+//
+// Rules confirmed from Bryan:
+//   Food    = full meals (sit-down or takeaway, primary offering is a meal)
+//   Snack   = light bites, sweet, bakery, coffee-only, bubble tea, dessert
+//             NO full meals, NO alcohol
+//   Drink   = primarily alcoholic / cocktails / you go there to drink
+//   See     = experience/visit destination (not primarily eating or shopping)
+//   Shop    = you go there to buy things
+//   Uncategorised = anything we can't confidently assign
+//
+// Key disambiguation:
+//   gcid:cafe          -> Food  (Singapore cafes typically serve full meals)
+//   gcid:coffee_shop   -> Snack (beverage-focus, e.g. Starbucks, kopitiam)
+//   gcid:juice_bar     -> Snack (NOT Drink — non-alcoholic)
+//   gcid:gastropub     -> Drink (drinking with food, primary = drink)
+//   gcid:brunch_restaurant -> Food (full meal)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Icon slug → primary category mapping (from /maps/preview/place d[29])
-const ICON_TO_PRIMARY: Record<string, string> = {
+const GCID_MAP: Record<string, string> = {
+  // ── Food ──────────────────────────────────────────────────────────────────
   restaurant: "Food",
-  cafe: "Food",
-  coffee: "Food",
-  food: "Food",
-  fastfood: "Food",
-  bakery: "Food",
-  icecream: "Food",
-  dessert: "Food",
+  american_restaurant: "Food",
+  asian_restaurant: "Food",
+  chinese_restaurant: "Food",
+  japanese_restaurant: "Food",
+  korean_restaurant: "Food",
+  thai_restaurant: "Food",
+  vietnamese_restaurant: "Food",
+  indian_restaurant: "Food",
+  italian_restaurant: "Food",
+  french_restaurant: "Food",
+  mediterranean_restaurant: "Food",
+  mexican_restaurant: "Food",
+  middle_eastern_restaurant: "Food",
+  spanish_restaurant: "Food",
+  turkish_restaurant: "Food",
+  greek_restaurant: "Food",
+  german_restaurant: "Food",
+  british_restaurant: "Food",
+  australian_restaurant: "Food",
+  seafood_restaurant: "Food",
+  steak_house: "Food",
+  sushi_restaurant: "Food",
+  ramen_restaurant: "Food",
+  noodle_restaurant: "Food",
+  noodle_shop: "Food",
+  pizza_restaurant: "Food",
+  burger_restaurant: "Food",
+  fried_chicken_restaurant: "Food",
+  bbq_restaurant: "Food",
+  hot_pot_restaurant: "Food",
+  teppanyaki_restaurant: "Food",
+  tonkatsu_restaurant: "Food",
+  yakiniku_restaurant: "Food",
+  yakitori_restaurant: "Food",
+  izakaya_restaurant: "Food",
+  dim_sum_restaurant: "Food",
+  dumpling_restaurant: "Food",
+  hawker_centre: "Food",
+  food_court: "Food",
+  buffet_restaurant: "Food",
+  vegetarian_restaurant: "Food",
+  vegan_restaurant: "Food",
+  brunch_restaurant: "Food",
+  breakfast_restaurant: "Food",
+  family_restaurant: "Food",
+  fast_food_restaurant: "Food",
+  diner: "Food",
+  bistro: "Food",
+  brasserie: "Food",
+  cafe: "Food",             // Singapore cafes = full meal destinations
+  tea_restaurant: "Food",
+  rice_restaurant: "Food",
+  poke_restaurant: "Food",
+  pasta_restaurant: "Food",
+  western_restaurant: "Food",
+  fusion_restaurant: "Food",
+  omakase_restaurant: "Food",
+  taco_restaurant: "Food",
+  shabu_shabu_restaurant: "Food",
+  pho_restaurant: "Food",
+  curry_restaurant: "Food",
+  halal_restaurant: "Food",
+  kosher_restaurant: "Food",
+  fish_and_chips_restaurant: "Food",
+  cantonese_restaurant: "Food",
+  szechuan_restaurant: "Food",
+  taiwanese_restaurant: "Food",
+  hong_kong_style_cafe: "Food",
+
+  // ── Snack ─────────────────────────────────────────────────────────────────
+  coffee_shop: "Snack",       // beverage-focus (Starbucks, kopitiam)
+  bakery: "Snack",
+  pastry_shop: "Snack",
+  patisserie: "Snack",
+  dessert_shop: "Snack",
+  dessert_restaurant: "Snack",
+  ice_cream_shop: "Snack",
+  gelato_shop: "Snack",
+  frozen_yogurt_shop: "Snack",
+  shaved_ice_shop: "Snack",
+  bubble_tea_shop: "Snack",
+  boba_shop: "Snack",
+  tea_house: "Snack",
+  milk_tea_shop: "Snack",
+  juice_bar: "Snack",         // non-alcoholic
+  smoothie_bar: "Snack",
+  donut_shop: "Snack",
+  waffle_shop: "Snack",
+  crepe_shop: "Snack",
+  bagel_shop: "Snack",
+  sandwich_shop: "Snack",
+  toast_restaurant: "Snack",
+  cake_shop: "Snack",
+  chocolate_shop: "Snack",
+  candy_store: "Snack",
+  mochi_shop: "Snack",
+  tart_shop: "Snack",
+  macaron_shop: "Snack",
+  soft_serve_shop: "Snack",
+  fruit_stall: "Snack",
+  durian_shop: "Snack",
+  kopi_shop: "Snack",
+  snack_bar: "Snack",
+
+  // ── Drink ─────────────────────────────────────────────────────────────────
   bar: "Drink",
-  nightclub: "Drink",
+  cocktail_bar: "Drink",
+  wine_bar: "Drink",
+  beer_bar: "Drink",
+  sake_bar: "Drink",
+  whisky_bar: "Drink",
+  whiskey_bar: "Drink",
+  sports_bar: "Drink",
   pub: "Drink",
+  taproom: "Drink",
   brewery: "Drink",
-  winery: "Drink",
-  liquorstore: "Drink",
-  park: "See",
+  microbrewery: "Drink",
+  wine_cellar: "Drink",
+  night_club: "Drink",
+  nightclub: "Drink",
+  lounge: "Drink",
+  speakeasy: "Drink",
+  rooftop_bar: "Drink",
+  karaoke: "Drink",
+  karaoke_bar: "Drink",
+  jazz_club: "Drink",
+  live_music_venue: "Drink",
+  gay_bar: "Drink",
+  dive_bar: "Drink",
+  tiki_bar: "Drink",
+  champagne_bar: "Drink",
+  sake_pub: "Drink",
+  distillery: "Drink",
+  gastropub: "Drink",         // primary = drinking with food
+
+  // ── See ───────────────────────────────────────────────────────────────────
   museum: "See",
-  landmark: "See",
-  church: "See",
+  art_museum: "See",
+  science_museum: "See",
+  history_museum: "See",
+  natural_history_museum: "See",
+  children_museum: "See",
+  art_gallery: "See",
+  exhibition_hall: "See",
+  park: "See",
+  national_park: "See",
+  garden: "See",
+  botanical_garden: "See",
+  nature_reserve: "See",
+  hiking_area: "See",
+  hiking_trail: "See",
   temple: "See",
+  church: "See",
+  cathedral: "See",
   mosque: "See",
+  shrine: "See",
+  hindu_temple: "See",
+  buddhist_temple: "See",
+  taoist_temple: "See",
+  synagogue: "See",
+  heritage_building: "See",
+  heritage_site: "See",
+  landmark: "See",
+  monument: "See",
+  memorial: "See",
+  war_memorial: "See",
+  viewpoint: "See",
+  observation_deck: "See",
   zoo: "See",
   aquarium: "See",
-  amusement: "See",
+  wildlife_park: "See",
+  bird_park: "See",
+  safari_park: "See",
+  amusement_park: "See",
+  theme_park: "See",
+  water_park: "See",
+  escape_room: "See",
   hotel: "See",
+  resort: "See",
+  hostel: "See",
+  boutique_hotel: "See",
+  capsule_hotel: "See",
+  ryokan: "See",
   spa: "See",
-  theater: "See",
+  wellness_centre: "See",
+  onsen: "See",
+  hot_spring: "See",
+  bath_house: "See",
   cinema: "See",
+  movie_theater: "See",
+  theater: "See",
+  performing_arts_theater: "See",
+  concert_hall: "See",
+  opera_house: "See",
   stadium: "See",
-  shoppingbag: "Shop",
-  store: "Shop",
-  shopping: "Shop",
-  mall: "Shop",
-  department: "Shop",
-  clothing: "Shop",
-  jewelry: "Shop",
-  electronics: "Shop",
+  arena: "See",
+  sports_complex: "See",
+  beach: "See",
+  island: "See",
+  waterfall: "See",
+  cave: "See",
+  scenic_point: "See",
+  night_market: "See",      // experience destination
+  cultural_centre: "See",
+  community_centre: "See",
+  library: "See",
+  university: "See",
+
+  // ── Shop ──────────────────────────────────────────────────────────────────
+  clothing_store: "Shop",
+  shoe_store: "Shop",
+  jewelry_store: "Shop",
+  bag_store: "Shop",
+  handbag_shop: "Shop",
+  accessories_store: "Shop",
+  electronics_store: "Shop",
+  mobile_phone_shop: "Shop",
+  camera_store: "Shop",
+  computer_store: "Shop",
   bookstore: "Shop",
+  record_store: "Shop",
+  toy_store: "Shop",
+  sporting_goods_store: "Shop",
+  outdoor_sports_store: "Shop",
+  bicycle_store: "Shop",
+  supermarket: "Shop",
+  grocery_store: "Shop",
+  wet_market: "Shop",
+  convenience_store: "Shop",
+  department_store: "Shop",
+  shopping_mall: "Shop",
+  outlet_mall: "Shop",
   pharmacy: "Shop",
-  beauty: "Shop",
-  salon: "Shop",
+  beauty_supply_store: "Shop",
+  cosmetics_store: "Shop",
+  perfume_store: "Shop",
+  furniture_store: "Shop",
+  home_decor_store: "Shop",
+  gift_shop: "Shop",
+  souvenir_shop: "Shop",
+  antique_store: "Shop",
+  vintage_store: "Shop",
+  thrift_store: "Shop",
+  florist: "Shop",
+  pet_store: "Shop",
+  concept_store: "Shop",
+  lifestyle_store: "Shop",
+  stationery_store: "Shop",
+  art_supply_store: "Shop",
+  optical_store: "Shop",
+  watch_store: "Shop",
+  music_store: "Shop",
+  craft_store: "Shop",
+  tobacco_shop: "Shop",
+  wine_shop: "Shop",        // buying bottles to take home
+  liquor_store: "Shop",
 };
 
-// Rich text type → primary category (from parsed place response text)
-const TYPE_LABEL_TO_PRIMARY: Record<string, string> = {
-  "restaurant": "Food", "ramen restaurant": "Food", "sushi restaurant": "Food",
-  "japanese restaurant": "Food", "korean restaurant": "Food", "chinese restaurant": "Food",
-  "italian restaurant": "Food", "french restaurant": "Food", "thai restaurant": "Food",
-  "vietnamese restaurant": "Food", "indian restaurant": "Food", "mexican restaurant": "Food",
-  "american restaurant": "Food", "seafood restaurant": "Food", "steak house": "Food",
-  "pizza restaurant": "Food", "burger restaurant": "Food", "sandwich shop": "Food",
-  "noodle shop": "Food", "dumpling restaurant": "Food", "dim sum restaurant": "Food",
-  "hawker centre": "Food", "food court": "Food", "buffet restaurant": "Food",
-  "vegetarian restaurant": "Food", "vegan restaurant": "Food", "brunch restaurant": "Food",
-  "breakfast restaurant": "Food", "dessert shop": "Food", "ice cream shop": "Food",
-  "gelato shop": "Food", "cake shop": "Food", "bakery": "Food", "pastry shop": "Food",
-  "donut shop": "Food", "waffle shop": "Food", "cafe": "Food", "coffee shop": "Food",
-  "tea house": "Food", "bubble tea shop": "Food", "juice bar": "Food", "smoothie bar": "Food",
-  "tonkatsu restaurant": "Food", "teppanyaki restaurant": "Food", "shabu-shabu restaurant": "Food",
-  "yakiniku restaurant": "Food", "poke bowl restaurant": "Food", "pasta shop": "Food",
-  "bar": "Drink", "cocktail bar": "Drink", "wine bar": "Drink", "beer bar": "Drink",
-  "sake bar": "Drink", "whisky bar": "Drink", "sports bar": "Drink", "lounge": "Drink",
-  "nightclub": "Drink", "pub": "Drink", "gastropub": "Drink", "brewery": "Drink",
-  "bar & grill": "Drink", "speakeasy": "Drink", "rooftop bar": "Drink",
-  "park": "See", "national park": "See", "garden": "See", "botanical garden": "See",
-  "museum": "See", "art museum": "See", "science museum": "See", "history museum": "See",
-  "art gallery": "See", "landmark": "See", "monument": "See", "memorial": "See",
-  "temple": "See", "church": "See", "cathedral": "See", "mosque": "See", "shrine": "See",
-  "zoo": "See", "aquarium": "See", "amusement park": "See", "theme park": "See",
-  "water park": "See", "hotel": "See", "resort": "See", "hostel": "See",
-  "spa": "See", "wellness center": "See", "cinema": "See", "theater": "See",
-  "stadium": "See", "arena": "See", "beach": "See", "viewpoint": "See",
-  "clothing store": "Shop", "shoe store": "Shop", "jewelry store": "Shop",
-  "electronics store": "Shop", "bookstore": "Shop", "gift shop": "Shop",
-  "souvenir shop": "Shop", "pharmacy": "Shop", "supermarket": "Shop",
-  "convenience store": "Shop", "department store": "Shop", "shopping mall": "Shop",
-  "market": "Shop", "boutique": "Shop", "beauty supply store": "Shop",
-  "hair salon": "Shop", "nail salon": "Shop",
-};
+// ─── Type-label text -> primary (fallback if no gcid) ────────────────────────
+// Covers Google's display strings like "Ramen restaurant", "Cocktail bar" etc.
 
-function iconSlugToPrimary(slug: string): string {
-  const key = slug.toLowerCase().replace(/[^a-z]/g, "");
-  return ICON_TO_PRIMARY[key] || "Food";
-}
+function typeLabelToPrimary(label: string): string | null {
+  const l = label.toLowerCase().trim();
 
-function typeLabelToPrimary(label: string): string {
-  const key = label.toLowerCase().trim();
-  return TYPE_LABEL_TO_PRIMARY[key] || "Food";
+  // Exact known labels
+  const LABEL_MAP: Record<string, string> = {
+    "restaurant": "Food", "ramen restaurant": "Food", "sushi restaurant": "Food",
+    "japanese restaurant": "Food", "korean restaurant": "Food",
+    "chinese restaurant": "Food", "italian restaurant": "Food",
+    "french restaurant": "Food", "thai restaurant": "Food",
+    "vietnamese restaurant": "Food", "indian restaurant": "Food",
+    "mexican restaurant": "Food", "american restaurant": "Food",
+    "seafood restaurant": "Food", "steak house": "Food",
+    "pizza restaurant": "Food", "burger restaurant": "Food",
+    "noodle shop": "Food", "dumpling restaurant": "Food",
+    "dim sum restaurant": "Food", "hawker centre": "Food",
+    "food court": "Food", "buffet restaurant": "Food",
+    "vegetarian restaurant": "Food", "vegan restaurant": "Food",
+    "brunch restaurant": "Food", "breakfast restaurant": "Food",
+    "tonkatsu restaurant": "Food", "teppanyaki restaurant": "Food",
+    "shabu-shabu restaurant": "Food", "yakiniku restaurant": "Food",
+    "pasta shop": "Food", "pasta restaurant": "Food",
+    "sandwich shop": "Snack", "bagel shop": "Snack",
+    "cafe": "Food", "coffee shop": "Snack",
+    "bakery": "Snack", "pastry shop": "Snack",
+    "dessert shop": "Snack", "dessert restaurant": "Snack",
+    "ice cream shop": "Snack", "gelato shop": "Snack",
+    "bubble tea shop": "Snack", "tea house": "Snack",
+    "juice bar": "Snack", "smoothie bar": "Snack",
+    "donut shop": "Snack", "waffle shop": "Snack",
+    "crepe shop": "Snack", "cake shop": "Snack",
+    "toast restaurant": "Snack",
+    "bar": "Drink", "cocktail bar": "Drink", "wine bar": "Drink",
+    "beer bar": "Drink", "sake bar": "Drink", "whisky bar": "Drink",
+    "sports bar": "Drink", "pub": "Drink", "taproom": "Drink",
+    "brewery": "Drink", "night club": "Drink", "nightclub": "Drink",
+    "lounge": "Drink", "speakeasy": "Drink", "rooftop bar": "Drink",
+    "karaoke": "Drink", "jazz club": "Drink", "gastropub": "Drink",
+    "museum": "See", "art gallery": "See", "park": "See", "garden": "See",
+    "botanical garden": "See", "temple": "See", "church": "See",
+    "cathedral": "See", "mosque": "See", "shrine": "See",
+    "zoo": "See", "aquarium": "See", "amusement park": "See",
+    "theme park": "See", "escape room": "See",
+    "hotel": "See", "resort": "See", "hostel": "See", "spa": "See",
+    "cinema": "See", "theater": "See", "stadium": "See", "beach": "See",
+    "clothing store": "Shop", "shoe store": "Shop", "jewelry store": "Shop",
+    "electronics store": "Shop", "bookstore": "Shop", "gift shop": "Shop",
+    "souvenir shop": "Shop", "pharmacy": "Shop", "supermarket": "Shop",
+    "department store": "Shop", "shopping mall": "Shop",
+    "convenience store": "Shop", "florist": "Shop",
+  };
+
+  if (LABEL_MAP[l]) return LABEL_MAP[l];
+
+  // Suffix rules
+  if (l.endsWith(" restaurant")) return "Food";
+  if (l.endsWith(" bistro") || l.endsWith(" brasserie")) return "Food";
+  if (l.endsWith(" bar")) {
+    // juice bar, smoothie bar, milk bar -> Snack
+    if (l.includes("juice") || l.includes("smoothie") || l.includes("milk") || l.includes("snack")) return "Snack";
+    return "Drink";
+  }
+  if (l.endsWith(" pub") || l.endsWith(" club") || l.endsWith(" lounge")) return "Drink";
+  if (l.endsWith(" museum") || l.endsWith(" gallery") || l.endsWith(" park") ||
+      l.endsWith(" garden") || l.endsWith(" temple") || l.endsWith(" shrine") ||
+      l.endsWith(" church") || l.endsWith(" mosque") || l.endsWith(" theatre") ||
+      l.endsWith(" theater") || l.endsWith(" hotel") || l.endsWith(" hostel") ||
+      l.endsWith(" resort") || l.endsWith(" spa")) return "See";
+  if (l.endsWith(" store") || l.endsWith(" shop") && (
+      l.includes("clothing") || l.includes("shoe") || l.includes("jewel") ||
+      l.includes("electronic") || l.includes("book") || l.includes("gift") ||
+      l.includes("souvenir") || l.includes("toy") || l.includes("sport"))) return "Shop";
+  if (l.endsWith(" shop") || l.endsWith(" stall")) {
+    // default small shops: snack unless clearly retail
+    return "Snack";
+  }
+  if (l.endsWith(" mall") || l.endsWith(" market")) return "Shop";
+
+  return null;
 }
 
 function parsePriceCode(priceStr: string): number {
   if (!priceStr) return 0;
-  // "$10–30" style
   const dollarCount = (priceStr.match(/\$/g) || []).length;
-  if (dollarCount > 1) return dollarCount; // "$$" → 2
-  // Parse numeric range like "$10–30"
+  if (dollarCount > 1) return dollarCount;
   const nums = priceStr.match(/\d+/g);
   if (!nums) return 0;
   const avg = nums.reduce((a, b) => a + parseInt(b), 0) / nums.length;
@@ -150,26 +393,18 @@ function buildMapsLink(p: any[]): string {
       return `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lon},17z`;
     }
     return "";
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
 export function parseApiJson(raw: string): ExtractedData {
   const body = raw.replace(/^\)\]\}'\n?/, "");
   let data: any;
-  try {
-    data = JSON.parse(body);
-  } catch {
-    // If raw is already the parsed object (sent via postMessage as object)
-    data = raw;
-  }
-
-  // Handle postMessage wrapper: { type: "GMAPLIST_DATA", data: [...] }
+  try { data = JSON.parse(body); } catch { data = raw; }
   if (data && data.type === "GMAPLIST_DATA") data = data.data;
 
   const listTitle: string = data?.[0]?.[4] ?? "My List";
   const listUrl: string = data?.[0]?.[2]?.[2] ?? "";
+  const listId: string = data?.[0]?.[0]?.[0] ?? "";
   const rawPlaces: any[] = data?.[0]?.[8] ?? [];
 
   const places: Place[] = [];
@@ -177,32 +412,49 @@ export function parseApiJson(raw: string): ExtractedData {
   for (const p of rawPlaces) {
     if (!Array.isArray(p) || typeof p[2] !== "string" || !p[2]) continue;
 
+    const pa = p as any;
     const name: string = p[2];
     const userNote: string = p[3] ?? "";
 
-    // Enriched fields from bookmarklet place lookup
-    const pa = p as any;
     const iconSlug: string = pa.__icon ?? "";
     const typeLabel: string = pa.__type ?? "";
+    const gcid: string = pa.__gcid ?? "";  // e.g. "gcid:ramen_restaurant"
     const rating: number = typeof pa.__rating === "number" ? pa.__rating : 0;
     const reviews: number = typeof pa.__reviews === "number" ? pa.__reviews : 0;
     const priceStr: string = pa.__price ?? "";
 
-    // Determine category
-    let primary: string;
-    let detailed: string;
-    if (typeLabel) {
-      primary = typeLabelToPrimary(typeLabel);
-      detailed = typeLabel;
-    } else if (iconSlug) {
-      primary = iconSlugToPrimary(iconSlug);
-      detailed = iconSlug.charAt(0).toUpperCase() + iconSlug.slice(1);
-    } else {
-      primary = "Food";
-      detailed = "Restaurant";
+    // ── Category resolution (priority order) ──────────────────────────────
+    let primary: string = "";
+    let detailed: string = typeLabel || "";
+
+    // 1. gcid (most reliable)
+    if (!primary && gcid) {
+      const gcidKey = gcid.replace("gcid:", "");
+      primary = GCID_MAP[gcidKey] ?? "";
     }
 
-    // Added-at timestamp
+    // 2. type label exact + suffix rules
+    if (!primary && typeLabel) {
+      primary = typeLabelToPrimary(typeLabel) ?? "";
+    }
+
+    // 3. icon slug (coarse fallback)
+    if (!primary && iconSlug) {
+      const iconMap: Record<string, string> = {
+        restaurant: "Food", cafe: "Food", food: "Food", fastfood: "Food",
+        bakery: "Snack", icecream: "Snack", dessert: "Snack", coffee: "Snack",
+        bar: "Drink", nightclub: "Drink",
+        park: "See", museum: "See", landmark: "See", hotel: "See",
+        shoppingbag: "Shop", store: "Shop",
+      };
+      primary = iconMap[iconSlug.toLowerCase()] ?? "";
+      if (!detailed) detailed = iconSlug.charAt(0).toUpperCase() + iconSlug.slice(1);
+    }
+
+    // 4. Uncategorised — explicit, visible
+    if (!primary) primary = "Uncategorised";
+    if (!detailed) detailed = primary === "Uncategorised" ? "Unknown" : primary;
+
     const addedAt: number | undefined =
       Array.isArray(p[9]) && typeof p[9][0] === "number" ? p[9][0] : undefined;
 
@@ -217,12 +469,15 @@ export function parseApiJson(raw: string): ExtractedData {
       user_notes: userNote || undefined,
       google_maps_link: buildMapsLink(p),
       added_at: addedAt,
+      is_override: false,
+      list_id: listId,
     });
   }
 
   return {
     list_title: listTitle,
     list_source_url: listUrl,
+    list_id: listId,
     ui_config: buildUIConfig(places),
     places,
   };
@@ -230,25 +485,13 @@ export function parseApiJson(raw: string): ExtractedData {
 
 function buildUIConfig(places: Place[]): UIConfig {
   const cats = [...new Set(places.map((p) => p.primary_category))].sort();
-  const hasVisited = places.some((p) => p.user_notes?.toLowerCase().includes("visited"));
   return {
     sorting_options: [],
-    filter_groups: [
-      {
-        field: "primary_category",
-        label: "Category",
-        icon_svg_placeholder: "",
-        unique_values: cats,
-      },
-      ...(hasVisited
-        ? [{
-            field: "user_notes" as keyof Place,
-            label: "Status",
-            icon_svg_placeholder: "",
-            unique_values: ["Visited"],
-          }]
-        : []),
-    ],
+    filter_groups: [{
+      field: "primary_category",
+      label: "Category",
+      icon_svg_placeholder: "",
+      unique_values: cats,
+    }],
   };
 }
-
