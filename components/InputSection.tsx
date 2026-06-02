@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Map as MapIcon, Sparkles, Copy, Check, Loader2, Radio } from 'lucide-react';
+import { Map as MapIcon, Sparkles, Copy, Check, Radio } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../constants';
 
 interface InputSectionProps {
@@ -10,7 +10,6 @@ interface InputSectionProps {
 
 export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading, isReceiving }) => {
   const [copied, setCopied] = useState(false);
-  const [pasteContent, setPasteContent] = useState('');
 
   const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
 
@@ -21,140 +20,91 @@ export const InputSection: React.FC<InputSectionProps> = ({ onExtract, isLoading
     });
   };
 
-  const handlePasteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pasteContent.trim()) return;
-    await onExtract(pasteContent);
-  };
-
   return (
-    <div className="w-full max-w-3xl mx-auto">
-
-      {/* Loading overlay — shown while processing incoming bookmarklet data */}
-      {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
-            <Loader2 size={40} className="animate-spin text-brand-600" />
-            <p className="text-zinc-800 dark:text-white font-semibold text-lg">Processing your list...</p>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Fetching categories, ratings &amp; prices...</p>
-          </div>
-        </div>
-      )}
-
+    <div className="w-full max-w-2xl mx-auto">
       {/* Hero */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-brand-600 text-white shadow-glow shadow-brand-500/30">
+        <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-brand-600 text-white shadow-lg">
           <MapIcon size={32} strokeWidth={2} />
         </div>
         <h1 className="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-4 tracking-tight">
-          Organize your Maps.
+          GMapList
         </h1>
-        <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto leading-relaxed">
-          Turn your Google Maps saved lists into a clean, sortable card view — in seconds.
+        <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+          Turn your Google Maps saved list into a Kanban board — sort, categorise, and tag your places.
         </p>
       </div>
 
       {/* Steps */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="flex flex-col gap-4">
 
         {/* Step 1 — Install */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-soft flex flex-col gap-3">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-bold text-xs">1</span>
-            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">Install Bookmarklet</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">Install the bookmarklet</h3>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            Copy the URL, open <kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-xs">Ctrl+Shift+O</kbd>, click <span className="font-medium text-zinc-700 dark:text-zinc-300">⋮ → Add new bookmark</span>, paste as the URL. Name it <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span>.
+            Copy the URL below. Open <kbd className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-xs">Ctrl+Shift+O</kbd>, click <span className="font-medium text-zinc-700 dark:text-zinc-300">⋮ → Add new bookmark</span>, paste as the URL. Name it <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span>.
           </p>
           <button
             onClick={copyBookmarklet}
-            className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-all select-none"
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-all"
           >
-            {copied
-              ? <><Check size={14} /> Copied!</>
-              : <><Copy size={14} /> Copy Bookmarklet URL</>
-            }
+            {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Bookmarklet URL</>}
           </button>
         </div>
 
         {/* Step 2 — Run */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-soft flex flex-col gap-3">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-bold text-xs">2</span>
-            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">Run on Maps</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">Run on Google Maps</h3>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            Open a <span className="font-medium text-zinc-700 dark:text-zinc-300">Google Maps saved list</span>, wait for it to load. <span className="font-medium text-zinc-700 dark:text-zinc-300">Click any one place</span> on the map to load its details, then click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
+            Open any <span className="font-medium text-zinc-700 dark:text-zinc-300">Google Maps saved list</span>, wait for it to load.{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Click any one place</span> on the map first — this loads rich details (category, rating, price).
+            Then click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
           </p>
-          <div className="mt-auto flex items-center gap-1.5 w-full py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3">
-            <span className="text-amber-500 text-xs">⚠</span>
-            <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Click one place first — required for rich categories, ratings &amp; prices</span>
+          {/* Warning */}
+          <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <span className="text-amber-500 text-sm mt-0.5">⚠</span>
+            <span className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              <span className="font-semibold">Click one place on the map first.</span> Without this step the bookmarklet still works, but categories, ratings and prices won't be fetched.
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+            <Sparkles size={14} /> Click bookmarklet on Maps tab
           </div>
         </div>
 
-        {/* Step 3 — Waiting / Done */}
+        {/* Step 3 — Waiting */}
         <div className={`rounded-2xl p-5 border flex flex-col gap-3 transition-all duration-500 ${
           isReceiving
-            ? 'bg-brand-50 dark:bg-brand-950/30 border-brand-300 dark:border-brand-700 shadow-lg shadow-brand-500/10'
-            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-soft'
+            ? 'bg-brand-50 dark:bg-brand-950/30 border-brand-300 dark:border-brand-700 shadow-lg'
+            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
         }`}>
           <div className="flex items-center gap-2">
             <span className={`flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs transition-colors ${
-              isReceiving
-                ? 'bg-brand-600 text-white'
-                : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+              isReceiving ? 'bg-brand-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
             }`}>3</span>
             <h3 className="font-semibold text-zinc-900 dark:text-white text-sm">
-              {isReceiving ? 'Listening...' : 'Data appears here'}
+              {isReceiving ? 'Listening for your list...' : 'Your Kanban board appears here'}
             </h3>
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            {isReceiving
-              ? 'This tab is ready. Run the bookmarklet on your Maps list — cards will appear automatically.'
-              : 'The bookmarklet fetches your full list and sends it here. Cards render automatically.'
-            }
-          </p>
-          <div className={`mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-medium select-none transition-all ${
-            isReceiving
-              ? 'bg-brand-600 text-white animate-pulse'
-              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
-          }`}>
-            {isReceiving
-              ? <><Radio size={14} /> Waiting for bookmarklet data...</>
-              : <><Check size={14} /> Auto-populates</>
-            }
-          </div>
+          {isReceiving ? (
+            <div className="flex items-center gap-2 text-xs text-brand-600 dark:text-brand-400">
+              <Radio size={13} className="animate-pulse" />
+              Waiting for bookmarklet data — run it on Maps now
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              After running the bookmarklet, your list opens here as a sortable Kanban board. Drag cards between columns to categorise.
+            </p>
+          )}
         </div>
 
       </div>
-
-      {/* Manual fallback paste area */}
-      <form onSubmit={handlePasteSubmit}>
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-soft overflow-hidden">
-          <textarea
-            className="w-full h-28 p-4 bg-transparent border-none outline-none text-sm font-mono text-zinc-700 dark:text-zinc-300 resize-none focus:ring-0 placeholder-zinc-400 dark:placeholder-zinc-600"
-            placeholder="Or paste JSON from the bookmarklet here manually..."
-            value={pasteContent}
-            onChange={(e) => setPasteContent(e.target.value)}
-            disabled={isLoading}
-          />
-          {pasteContent.trim() && (
-            <div className="px-4 pb-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 disabled:opacity-50 transition-all"
-              >
-                {isLoading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : 'Process'}
-              </button>
-            </div>
-          )}
-        </div>
-      </form>
-
     </div>
   );
 };
-
-
-
