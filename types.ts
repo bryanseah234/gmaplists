@@ -6,13 +6,13 @@ export interface Place {
   place_name: string;
   /** The broad category bucket: "Food", "Drink", "See", "Shop" */
   primary_category: string;
-  /** The specific type extracted from text (e.g., "Ramen", "Park") */
+  /** Google's own place type label (e.g., "Ramen restaurant", "Cocktail bar") */
   detailed_category: string;
   /** Star rating (0.0 to 5.0) */
   star_rating: number;
   /** Number of reviews */
   review_count: number;
-  /** The visual price string (e.g., "$", "$$", "$$$") */
+  /** The visual price string (e.g., "$10–30") */
   price_range: string;
   /** Numeric representation of price (1, 2, 3, 4) for sorting */
   price_range_code: number;
@@ -20,6 +20,8 @@ export interface Place {
   user_notes?: string;
   /** Direct link to the place on Google Maps */
   google_maps_link?: string;
+  /** Unix timestamp (seconds) when place was added to the list */
+  added_at?: number;
 }
 
 /**
