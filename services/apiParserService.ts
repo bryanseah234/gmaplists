@@ -406,22 +406,24 @@ export function parseApiJson(raw: string): ExtractedData {
   const listUrl: string = data?.[0]?.[2]?.[2] ?? "";
   const listId: string = data?.[0]?.[0]?.[0] ?? "";
   const rawPlaces: any[] = data?.[0]?.[8] ?? [];
+  const metaArr: any[] = data?.[0]?.[99] ?? [];
 
   const places: Place[] = [];
 
-  for (const p of rawPlaces) {
+  for (let i = 0; i < rawPlaces.length; i++) {
+    const p = rawPlaces[i];
     if (!Array.isArray(p) || typeof p[2] !== "string" || !p[2]) continue;
 
-    const pa = p as any;
+    const meta = metaArr[i] ?? {};
     const name: string = p[2];
     const userNote: string = p[3] ?? "";
 
-    const iconSlug: string = pa.__icon ?? "";
-    const typeLabel: string = pa.__type ?? "";
-    const gcid: string = pa.__gcid ?? "";  // e.g. "gcid:ramen_restaurant"
-    const rating: number = typeof pa.__rating === "number" ? pa.__rating : 0;
-    const reviews: number = typeof pa.__reviews === "number" ? pa.__reviews : 0;
-    const priceStr: string = pa.__price ?? "";
+    const iconSlug: string = meta.__icon ?? "";
+    const typeLabel: string = meta.__type ?? "";
+    const gcid: string = meta.__gcid ?? "";  // e.g. "gcid:ramen_restaurant"
+    const rating: number = typeof meta.__rating === "number" ? meta.__rating : 0;
+    const reviews: number = typeof meta.__reviews === "number" ? meta.__reviews : 0;
+    const priceStr: string = meta.__price ?? "";
 
     // ── Category resolution (priority order) ──────────────────────────────
     let primary: string = "";
@@ -452,8 +454,8 @@ export function parseApiJson(raw: string): ExtractedData {
     }
 
     // 4. Uncategorised — explicit, visible
-    if (!primary) primary = "Uncategorised";
-    if (!detailed) detailed = primary === "Uncategorised" ? "Unknown" : primary;
+    if (!primary) primary = "Unsorted";
+    if (!detailed) detailed = primary === "Unsorted" ? "Unknown" : primary;
 
     const addedAt: number | undefined =
       Array.isArray(p[9]) && typeof p[9][0] === "number" ? p[9][0] : undefined;
@@ -495,3 +497,5 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
+
+
