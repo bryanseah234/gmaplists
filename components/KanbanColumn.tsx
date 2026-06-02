@@ -37,7 +37,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   // Column accent colours per category
   const accentMap: Record<string, string> = {
-    Uncategorised: "border-zinc-300 dark:border-zinc-700",
+    Unsorted: "border-zinc-300 dark:border-zinc-700",
     Food:          "border-orange-300 dark:border-orange-700",
     Snack:         "border-pink-300 dark:border-pink-700",
     Drink:         "border-purple-300 dark:border-purple-700",
@@ -45,7 +45,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     Shop:          "border-green-300 dark:border-green-700",
   };
   const headerMap: Record<string, string> = {
-    Uncategorised: "text-zinc-500 dark:text-zinc-400",
+    Unsorted: "text-zinc-500 dark:text-zinc-400",
     Food:          "text-orange-600 dark:text-orange-400",
     Snack:         "text-pink-600 dark:text-pink-400",
     Drink:         "text-purple-600 dark:text-purple-400",
@@ -53,7 +53,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     Shop:          "text-green-600 dark:text-green-400",
   };
   const dropBg: Record<string, string> = {
-    Uncategorised: "bg-zinc-50 dark:bg-zinc-900/50",
+    Unsorted: "bg-zinc-50 dark:bg-zinc-900/50",
     Food:          "bg-orange-50 dark:bg-orange-950/20",
     Snack:         "bg-pink-50 dark:bg-pink-950/20",
     Drink:         "bg-purple-50 dark:bg-purple-950/20",
@@ -61,9 +61,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     Shop:          "bg-green-50 dark:bg-green-950/20",
   };
 
-  const accent = accentMap[id] ?? accentMap.Uncategorised;
-  const headerColor = headerMap[id] ?? headerMap.Uncategorised;
-  const bgColor = dropBg[id] ?? dropBg.Uncategorised;
+  const accent = accentMap[id] ?? accentMap.Unsorted;
+  const headerColor = headerMap[id] ?? headerMap.Unsorted;
+  const bgColor = dropBg[id] ?? dropBg.Unsorted;
 
   return (
     <div className={`flex flex-col rounded-2xl border-2 transition-colors duration-150 min-w-[220px] max-w-[280px] w-full
@@ -132,4 +132,5 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     </div>
   );
 };
+
 

@@ -51,10 +51,11 @@ export interface ActiveFilters {
 }
 
 export const COLUMNS: { id: string; label: string; emoji: string }[] = [
-  { id: "Uncategorised", label: "Uncategorised", emoji: "❓" },
+  { id: "Unsorted", label: "Unsorted", emoji: "❓" },
   { id: "Food",          label: "Food",           emoji: "🍽" },
   { id: "Snack",         label: "Snack",          emoji: "🧁" },
   { id: "Drink",         label: "Drink",          emoji: "🍹" },
   { id: "See",           label: "See",            emoji: "👁" },
   { id: "Shop",          label: "Shop",           emoji: "🛍" },
 ];
+
