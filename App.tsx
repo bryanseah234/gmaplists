@@ -54,6 +54,25 @@ export default function App() {
     }
   }, []);
 
+  // Signal to the bookmarklet (window.opener) that we are ready to receive data
+  useEffect(() => {
+    if (window.opener) {
+      window.opener.postMessage({ type: 'GMAPLIST_READY' }, '*');
+    }
+  }, []);
+
+  // On mount: if URL has a list slug, show the kanban immediately using stored overrides
+  // (no places data stored — just show the import screen with the slug context)
+  // The postMessage from bookmarklet will populate the kanban
+  // But if the user refreshes mid-session the data is gone — show import screen
+  useEffect(() => {
+    const slug = window.location.pathname.replace(/^\//, '').trim();
+    if (slug && slug.length > 10) {
+      // Valid list ID in URL — switch to receiving mode so UI is ready
+      setIsReceiving(true);
+    }
+  }, []);
+
   // Listen for postMessage from bookmarklet
   useEffect(() => {
     setIsReceiving(true);
