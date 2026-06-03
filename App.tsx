@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { parseMapData } from './services/parserService';
 import { parseApiJson } from './services/apiParserService';
-import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces } from './services/storageService';
+import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
 import { ExtractedData, Place } from './types';
 import { KanbanView } from './components/KanbanView';
 import { InputSection } from './components/InputSection';
@@ -44,13 +44,34 @@ export default function App() {
     setData(result);
     setPlaces(enriched);
     setNewPlacesCount(newCount);
-    saveListMeta(result.list_id, result.list_title, result.places.length);
+    saveListMeta(result.list_id, result.list_title, result.places.length, result.places, result.list_source_url);
   }, []);
 
   // Sync URL to list slug
   const pushListUrl = useCallback((listId: string) => {
     if (listId && window.location.pathname !== '/' + listId) {
       window.history.pushState({ listId }, '', '/' + listId);
+    }
+  }, []);
+
+  // On mount: restore list from localStorage if URL contains a known list ID
+  useEffect(() => {
+    const slug = window.location.pathname.replace(/^\//, '').trim();
+    if (slug && slug.length > 10) {
+      const restored = restoreList(slug);
+      if (restored) {
+        const overrides = loadOverrides(slug);
+        const enriched = applyOverrides(restored.places, overrides);
+        setData({
+          list_title: restored.list_title,
+          list_source_url: restored.list_source_url,
+          list_id: slug,
+          places: enriched,
+          ui_config: { sorting_options: [], filter_groups: [] },
+        });
+        setPlaces(enriched);
+        setNewPlacesCount(0);
+      }
     }
   }, []);
 

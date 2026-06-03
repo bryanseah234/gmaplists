@@ -27,6 +27,10 @@ export interface ListMeta {
   last_synced: number;
   place_count: number;
   overrides: Record<string, string>;
+  /** Full places array saved on import for offline/refresh restore */
+  places?: Place[];
+  /** List source URL */
+  list_source_url?: string;
 }
 
 function load(): Record<string, ListMeta> {
@@ -46,8 +50,14 @@ function save(data: Record<string, ListMeta>): void {
   }
 }
 
-/** Save list metadata after a fresh import. */
-export function saveListMeta(listId: string, title: string, placeCount: number): void {
+/** Save list metadata + full places after a fresh import. */
+export function saveListMeta(
+  listId: string,
+  title: string,
+  placeCount: number,
+  places?: Place[],
+  listSourceUrl?: string,
+): void {
   if (!listId) return;
   const data = load();
   if (!data[listId]) {
@@ -56,7 +66,22 @@ export function saveListMeta(listId: string, title: string, placeCount: number):
   data[listId].list_title = title;
   data[listId].last_synced = Math.floor(Date.now() / 1000);
   data[listId].place_count = placeCount;
+  if (places) data[listId].places = places;
+  if (listSourceUrl) data[listId].list_source_url = listSourceUrl;
   save(data);
+}
+
+/** Restore a previously imported list from localStorage. Returns null if not found. */
+export function restoreList(listId: string): { places: Place[]; list_title: string; list_source_url: string } | null {
+  if (!listId) return null;
+  const data = load();
+  const meta = data[listId];
+  if (!meta?.places?.length) return null;
+  return {
+    places: meta.places,
+    list_title: meta.list_title,
+    list_source_url: meta.list_source_url ?? '',
+  };
 }
 
 /** Save a single manual override (user dragged a card). */
