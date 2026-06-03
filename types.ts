@@ -6,12 +6,13 @@ export interface Place {
   detailed_category: string;
   star_rating: number;
   review_count: number;
-  price_range: string;
-  price_range_code: number;
+
   user_notes?: string;
   google_maps_link?: string;
   /** Unix seconds when place was added to the list */
   added_at?: number;
+  /** Hex place ID e.g. 0x31da...:0xb565... for reliable Maps links */
+  hex_place_id?: string;
   /** True when user has manually dragged this card to a different column */
   is_override: boolean;
   /** The list ID this place belongs to (for localStorage keying) */
@@ -58,4 +59,5 @@ export const COLUMNS: { id: string; label: string; emoji: string }[] = [
   { id: "See",           label: "See",            emoji: "👁" },
   { id: "Shop",          label: "Shop",           emoji: "🛍" },
 ];
+
 

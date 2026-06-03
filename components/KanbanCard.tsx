@@ -11,7 +11,7 @@ interface KanbanCardProps {
   onCategoryChange?: (placeName: string, newCategory: string) => void;
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ place, columnId, onCategoryChange }) => {
+const KanbanCardInner: React.FC<KanbanCardProps> = ({ place, columnId, onCategoryChange }) => {
   const [showSheet, setShowSheet] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -84,9 +84,6 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ place, columnId, onCateg
                 {place.star_rating}
               </span>
             )}
-            {place.price_range && (
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{place.price_range}</span>
-            )}
             {place.is_override && (
               <span title="Manually categorised" className="text-brand-400 dark:text-brand-500">
                 <Pencil size={9} />
@@ -119,3 +116,5 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ place, columnId, onCateg
     </>
   );
 };
+
+export const KanbanCard = React.memo(KanbanCardInner);

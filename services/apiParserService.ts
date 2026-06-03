@@ -365,32 +365,20 @@ function typeLabelToPrimary(label: string): string | null {
   return null;
 }
 
-function parsePriceCode(priceStr: string): number {
-  if (!priceStr) return 0;
-  const dollarCount = (priceStr.match(/\$/g) || []).length;
-  if (dollarCount > 1) return dollarCount;
-  const nums = priceStr.match(/\d+/g);
-  if (!nums) return 0;
-  const avg = nums.reduce((a, b) => a + parseInt(b), 0) / nums.length;
-  if (avg <= 15) return 1;
-  if (avg <= 30) return 2;
-  if (avg <= 60) return 3;
-  return 4;
-}
-
-function buildMapsLink(p: any[]): string {
+function buildMapsLink(p: any[], hexPlaceId?: string): string {
   try {
+    // Prefer hex place_id — opens correct place in Maps app reliably
+    if (hexPlaceId) {
+      return "https://www.google.com/maps/place/?q=place_id:" + hexPlaceId;
+    }
     const loc = p[1];
     if (!loc) return "";
-    const gPath = loc[7];
-    if (typeof gPath === "string" && gPath.startsWith("/g/")) {
-      return `https://www.google.com/maps${gPath}`;
-    }
+    // Fallback: lat/lon + name search (works, no 404s unlike /g/ paths)
     const lat = loc[5]?.[2];
     const lon = loc[5]?.[3];
     const name = p[2] ?? "";
     if (lat != null && lon != null) {
-      return `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lon},17z`;
+      return "https://www.google.com/maps/search/" + encodeURIComponent(name) + "/@" + lat + "," + lon + ",17z";
     }
     return "";
   } catch { return ""; }
@@ -429,9 +417,9 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
     const iconSlug: string = meta.__icon ?? "";
     const typeLabel: string = meta.__type ?? "";
     const gcid: string = meta.__gcid ?? "";  // e.g. "gcid:ramen_restaurant"
+    const hexPlaceId: string = meta.__hexId ?? "";
     const rating: number = typeof meta.__rating === "number" ? meta.__rating : 0;
     const reviews: number = typeof meta.__reviews === "number" ? meta.__reviews : 0;
-    const priceStr: string = meta.__price ?? "";
 
     // ── Category resolution (priority order) ──────────────────────────────
     let primary: string = "";
@@ -474,23 +462,29 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       primary_category: primary,
       detailed_category: detailed,
       star_rating: rating,
-      review_count: reviews,
-      price_range: priceStr,
-      price_range_code: parsePriceCode(priceStr),
-      user_notes: userNote || undefined,
-      google_maps_link: buildMapsLink(p),
+      review_count: reviews,      user_notes: userNote || undefined,
+      google_maps_link: buildMapsLink(p, hexPlaceId),
+      hex_place_id: hexPlaceId || undefined,
       added_at: addedAt,
       is_override: false,
       list_id: listId,
     });
   }
 
+  // Deduplicate by place_name (same place can appear multiple times in a list)
+  const seen = new Set<string>();
+  const uniquePlaces = places.filter(p => {
+    if (seen.has(p.place_name)) return false;
+    seen.add(p.place_name);
+    return true;
+  });
+
   return {
     list_title: listTitle,
     list_source_url: listUrl,
     list_id: listId,
-    ui_config: buildUIConfig(places),
-    places,
+    ui_config: buildUIConfig(uniquePlaces),
+    places: uniquePlaces,
   };
 }
 
@@ -506,6 +500,8 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
+
+
 
 
 

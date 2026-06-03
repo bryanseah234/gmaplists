@@ -15,7 +15,7 @@ interface KanbanColumnProps {
   horizontal?: boolean;
 }
 
-export const KanbanColumn: React.FC<KanbanColumnProps> = ({
+const KanbanColumnInner: React.FC<KanbanColumnProps> = ({
   id, label, emoji, places, listTitle, onCategoryChange, horizontal,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -135,5 +135,4 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   );
 };
 
-
-
+export const KanbanColumn = React.memo(KanbanColumnInner);

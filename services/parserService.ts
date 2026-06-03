@@ -114,8 +114,6 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       detailed_category: "Place",
       star_rating: 0,
       review_count: 0,
-      price_range: "",
-      price_range_code: 0,
       user_notes: "",
       google_maps_link: link,
       is_override: false,
@@ -142,8 +140,6 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       if (part.includes("$")) {
         const dollarMatch = part.match(/(\$+)/); // Finds sequence of $ signs
         if (dollarMatch) {
-          place.price_range_code = dollarMatch[1].length;
-          place.price_range = dollarMatch[1];
         }
         
         // Extract text around the dollars (e.g. "Ramen" from "Ramen · $$")
@@ -210,7 +206,6 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     sorting_options: [
       { field: "star_rating", "label": "Rating", "icon_svg_placeholder": "star" },
       { field: "review_count", "label": "Popularity", "icon_svg_placeholder": "flame" },
-      { field: "price_range_code", "label": "Price", "icon_svg_placeholder": "tag" }
     ],
     filter_groups: [
       {
