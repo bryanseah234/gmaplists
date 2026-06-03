@@ -468,8 +468,19 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       added_at: addedAt,
       is_override: false,
       list_id: listId,
+      ...(gcid ? { __gcid_raw: gcid } as any : {}),
     });
   }
+
+  // Debug: dump all unique gcid -> category mappings
+  const gcidDebug: Record<string, string> = {};
+  for (const p of places) {
+    const key = (p as any).__gcid_raw || p.detailed_category || "?";
+    gcidDebug[key] = p.primary_category;
+  }
+  console.log("[gmaplist] gcid->category map:", JSON.stringify(gcidDebug, null, 2));
+  const unknowns = places.filter(p => p.primary_category === "Unsorted");
+  console.log("[gmaplist] Unsorted count:", unknowns.length, "samples:", unknowns.slice(0,10).map(p=>"'"+p.place_name+"' gcid="+p.detailed_category).join(", "));
 
   // Deduplicate by place_name (same place can appear multiple times in a list)
   const seen = new Set<string>();
