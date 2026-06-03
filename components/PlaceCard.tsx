@@ -59,13 +59,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ place }) => {
             </div>
           )}
 
-          {place.price_range_code > 0 && (
-             <div className="flex gap-0.5">
-                {[...Array(4)].map((_, i) => (
-                  <span key={i} className={`text-xs font-bold ${i < place.price_range_code ? 'text-zinc-900 dark:text-white' : 'text-zinc-200 dark:text-zinc-800'}`}>$</span>
-                ))}
-             </div>
-          )}
+          
         </div>
       </div>
 

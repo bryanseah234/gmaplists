@@ -31,12 +31,16 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
         : "Unsorted";
       map[key].push(p);
     }
+    // Sort each column alphabetically by place name
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => a.place_name.localeCompare(b.place_name));
+    }
     return map;
   }, [places]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 12 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 12 } }),
   );
 
   const handleDragStart = (event: any) => {
