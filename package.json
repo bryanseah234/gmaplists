@@ -14,21 +14,21 @@
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/utilities": "3.2.2",
-    "lucide-react": "1.17.0",
-    "react": "19.2.5",
-    "react-dom": "19.2.7"
+    "lucide-react": "1.21.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.3.0",
+    "@tailwindcss/postcss": "4.3.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitest/ui": "^4.1.9",
     "autoprefixer": "10.4.21",
-    "postcss": "8.5.13",
-    "tailwindcss": "4.3.0",
+    "postcss": "8.5.14",
+    "tailwindcss": "4.3.1",
     "typescript": "6.0.3",
-    "vite": "8.0.16",
+    "vite": "8.0.12",
     "vitest": "^4.1.9"
   },
   "overrides": {
