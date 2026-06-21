@@ -1,84 +1,35 @@
-# PRD: GMapList
+# Product Requirements Document (PRD)
 
-## Overview
-A client-side React + TypeScript web application that parses exported Google Maps list data (ingested via a JavaScript bookmarklet) and renders it as a structured, drag-and-drop Kanban board. It supports dark/light/system themes and per-list local storage persistence. The app allows users to overcome the interface limitations of standard map views by organizing their scattered pins into clean, actionable columns.
+## 1. Executive Summary
+This application is a privacy-first, client-side React Single Page Application (SPA) designed to transform raw Google Maps list data into a structured, drag-and-drop Kanban board. By utilizing an automated bookmarklet ingestion pipeline and robust regex-based text parsing, it solves the problem of organizing and categorizing hundreds of saved places without requiring users to manually copy, paste, or authenticate with external APIs.
 
-## Goals
-- Parse Google Maps list data automatically intercepted by a bookmarklet.
-- Display places as draggable cards within a Kanban board.
-- Automatically categorize places into predefined buckets (Food, Snack, Drink, See, Shop, Unsorted).
-- Allow users to override automatic categorization by dragging cards between columns.
-- Persist manual overrides and list metadata to `localStorage`.
-- Highlight "new places" added since the last time a specific list was imported.
-- Dark/light/system theme with localStorage persistence.
-- Mobile-friendly splash screen.
+## 2. System Architecture
+The system operates entirely within the browser sandbox, consisting of four primary architectural pillars:
 
-## Non-Goals
-- Google Maps API integration (No API key required — uses purely client-side parsing).
-- Server-side database persistence (All data stays in the browser).
-- Advanced Sorting / Filtering via chips (Visual sorting is handled purely by Kanban columns).
-- Data Export (CSV/JSON generation is out of scope).
-- Real-time two-way data sync with Google Maps.
+- **State Orchestration (`src/App.tsx`)**: The root React component manages global state, routing (URL list slugs), and cross-window communication. It listens for `postMessage` payloads from the external bookmarklet.
+- **Asynchronous Parsing Engine (`src/services/parser.worker.ts`)**: A dedicated WebWorker thread that intercepts raw JSON or pipe-separated strings. It executes heavy regex matching and object mapping off the main thread to guarantee 60FPS UI responsiveness during massive list ingestions.
+- **Drag-and-Drop Kanban Interface (`src/components/Kanban/`)**: Powered by `@dnd-kit/core`, this module renders the UI. It dynamically buckets places into hardcoded categories (Food, Snack, Drink, See, Shop, Unsorted) and tracks user-initiated overrides.
+- **Client Persistence Layer (`src/services/storageService.ts`)**: A differential storage engine built on `localStorage`. It persists parsed lists, records manual category overrides, and calculates diffs to notify users of "newly added places" since their last sync.
 
-## Tech Stack
-- **Framework**: React 18+
-- **Language**: TypeScript
-- **Build**: Vite
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **Drag-and-Drop**: `@dnd-kit/core`
+## 3. Feature Matrix
+### 3.1 Data Ingestion
+- **Bookmarklet Sync**: Seamless payload transfer via `window.opener.postMessage`, avoiding manual data entry.
+- **Manual Regex Parsing**: A fallback mechanism that digests unstructured clipboard text and extracts structured entities (Names, Star Ratings, Review Counts, URLs) using the `PLACE_PATTERN` regex matrix.
 
-## Architecture & Data Flow
-```
-gmaplists/
-├── src/
-│   ├── App.tsx                      # Root state (theme, lists, overrides)
-│   ├── main.tsx                     # Entry point
-│   ├── config/constants.ts          # Core bookmarklet code
-│   ├── types/index.ts               # ExtractedData, Place definitions
-│   ├── components/
-│   │   ├── UI/                      # Shared inputs, modals, basic cards
-│   │   └── Kanban/                  # Board, Columns, and Draggable Cards
-│   └── services/
-│       ├── apiParserService.ts      # Core logic parsing GMaps JSON payloads
-│       ├── parserService.ts         # Fallback regex parsing engine
-│       ├── storageService.ts        # localStorage read/write operations
-│       └── mapLinkService.ts        # Map link generator
-```
+### 3.2 Kanban Categorization & Overrides
+- **Heuristic Auto-Sorting**: Automatically assigns places to UI columns based on Google Canonical IDs (`gcid`) or an exhaustive keyword dictionary matching place names and types.
+- **Persistent Drag-and-Drop**: Users can manually drag a card from "Unsorted" to "Food". The `is_override` flag is activated and the decision is permanently saved to `localStorage`, surviving future syncs.
 
-**State in App.tsx:**
-- `data: ExtractedData | null` — parsed list metadata.
-- `places: Place[]` — the enriched places array (combining raw parsed data with manual overrides).
-- `newPlacesCount: number` — differential count of places added since last sync.
-- `isLoading, isReceiving, error` — ingestion and parsing UI states.
-- `theme: 'light' | 'dark' | 'system'` — persisted to localStorage.
+### 3.3 Differential Tracking
+- **Change Detection**: The system compares the timestamp of incoming list items against the `last_synced` metric in the persistence layer.
+- **Alert Banner**: Dynamically renders a UI banner notifying the user exactly how many new places were detected in the latest import.
 
-## Features (detailed)
+## 4. Security & Performance
+- **Zero-Backend Architecture**: 100% of the application logic runs client-side. No databases, no auth tokens, and no server-side storage, eliminating the vast majority of PII leakage vectors.
+- **Determinism**: All Node dependencies are strictly pinned to exact semantic versions in `package.json` to prevent supply chain breaks.
+- **Main-Thread Isolation**: The transition of `apiParserService.ts` to a WebWorker entirely removes synchronous bottlenecks that previously froze the DOM during the processing of lists containing >500 items.
+- **CORS Independence**: The system relies on native browser capabilities and local regex to resolve shortened Google Maps links, having fully eliminated legacy reliance on insecure third-party proxy services (`api.allorigins.win`).
 
-### Data Ingestion & Parsing
-- Users run the `SCROLL_BOOKMARKLET_CODE` on a Google Maps list page.
-- The bookmarklet scrapes the DOM, builds a JSON payload, and sends it to the app via `window.opener.postMessage`.
-- `apiParserService` digests the JSON payload and cross-references Google's internal category IDs (`gcid`) to place them in 5 distinct categories.
-
-### Kanban Board
-- A 6-column layout (Unsorted, Food, Snack, Drink, See, Shop).
-- Users can drag cards between columns using `@dnd-kit`.
-- Moving a card triggers a `saveOverride` in `storageService`.
-
-### Local Persistence
-- `storageService.ts` maintains a registry of lists keyed by the list ID.
-- Saves the timestamp of the last import (`last_synced`).
-- Saves an object map of user-defined overrides (`{ "Place Name": "New Category" }`).
-- Throws a `StorageQuotaExceededError` if the browser limits are reached, which is gracefully handled by the UI.
-
-## Deployment / Run
-```bash
-npm install
-npm run dev
-```
-Production build uses `tsc && vite build`.
-
-## Constraints & Notes
-- **No API**: All data comes from user ingestion.
-- **Parser fragility**: Depends on Google Maps payload structures. If Google changes their web app format, the `apiParserService` will need updates.
-- **Data freshness**: Data is only as fresh as the last bookmarklet run. The app identifies newly added places by diffing `added_at` against the stored `last_synced` value.
+## 5. Non-Functional Requirements
+- **Storage Limits & Error Handling**: The persistence layer actively monitors `localStorage` quotas. If the 5MB browser limit is breached, the system throws a strict `StorageQuotaExceededError` that is caught and gracefully surfaced as an actionable UI banner, rather than silently dropping data.
+- **Test Coverage**: The critical parsing matrices and regex extractors are heavily documented and verified by a native `Vitest` unit testing suite, ensuring mapping logic remains stable across refactors.
