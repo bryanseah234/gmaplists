@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Map as MapIcon, Copy, Check, Radio } from 'lucide-react';
-import { SCROLL_BOOKMARKLET_CODE } from '../constants';
+import { SCROLL_BOOKMARKLET_CODE } from '../../config/constants';
 
 interface InputSectionProps {
   onExtract: (input: string) => Promise<void>;

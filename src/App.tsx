@@ -3,8 +3,8 @@ import { parseMapData } from './services/parserService';
 import { parseApiJson } from './services/apiParserService';
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
 import { ExtractedData, Place } from './types';
-import { KanbanView } from './components/KanbanView';
-import { InputSection } from './components/InputSection';
+import { KanbanView } from './components/Kanban/KanbanView';
+import { InputSection } from './components/UI/InputSection';
 import { Sun, Moon, Monitor, RotateCcw } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -38,13 +38,21 @@ export default function App() {
 
   // Ingest parsed data — apply overrides, save meta, compute new count
   const ingestData = useCallback((result: ExtractedData) => {
-    const overrides = loadOverrides(result.list_id);
-    const newCount = countNewPlaces(result.places, result.list_id);
-    const enriched = applyOverrides(result.places, overrides);
-    setData(result);
-    setPlaces(enriched);
-    setNewPlacesCount(newCount);
-    saveListMeta(result.list_id, result.list_title, result.places.length, result.places, result.list_source_url);
+    try {
+      const overrides = loadOverrides(result.list_id);
+      const newCount = countNewPlaces(result.places, result.list_id);
+      const enriched = applyOverrides(result.places, overrides);
+      setData(result);
+      setPlaces(enriched);
+      setNewPlacesCount(newCount);
+      saveListMeta(result.list_id, result.list_title, result.places.length, result.places, result.list_source_url);
+    } catch (e: any) {
+      if (e.name === 'StorageQuotaExceededError') {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred while saving.');
+      }
+    }
   }, []);
 
   // Sync URL to list slug
@@ -142,16 +150,24 @@ export default function App() {
   // Handle drag-and-drop category change
   const handleCategoryChange = useCallback((placeName: string, newCategory: string) => {
     if (!data) return;
-    // Update in state
-    setPlaces((prev) =>
-      prev.map((p) =>
-        p.place_name === placeName
-          ? { ...p, primary_category: newCategory, is_override: true }
-          : p
-      )
-    );
-    // Persist to localStorage
-    saveOverride(data.list_id, placeName, newCategory);
+    try {
+      // Persist to localStorage first so it fails before UI update if quota hit
+      saveOverride(data.list_id, placeName, newCategory);
+      // Update in state
+      setPlaces((prev) =>
+        prev.map((p) =>
+          p.place_name === placeName
+            ? { ...p, primary_category: newCategory, is_override: true }
+            : p
+        )
+      );
+    } catch (e: any) {
+      if (e.name === 'StorageQuotaExceededError') {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred while saving override.');
+      }
+    }
   }, [data]);
 
   // Reset back to import screen

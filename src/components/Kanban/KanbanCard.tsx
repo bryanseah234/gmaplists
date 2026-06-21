@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Place } from '../types';
+import { Place } from "../../types";
 import { ExternalLink, GripVertical, Pencil, Star, MoreHorizontal } from 'lucide-react';
-import { MoveSheet } from './MoveSheet';
+import { MoveSheet } from '../UI/MoveSheet';
 
 interface KanbanCardProps {
   place: Place;

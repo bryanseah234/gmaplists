@@ -3,7 +3,7 @@ import {
   DndContext, DragEndEvent, PointerSensor, TouchSensor,
   useSensor, useSensors, DragOverlay,
 } from "@dnd-kit/core";
-import { Place, ExtractedData, COLUMNS } from "../types";
+import { Place, ExtractedData, COLUMNS } from "../../types";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Place } from "../types";
+import { Place } from "../../types";
 import { KanbanCard } from "./KanbanCard";
 import { Copy, Check, ChevronDown, ChevronRight } from "lucide-react";
 

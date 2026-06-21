@@ -22,6 +22,13 @@ import { Place } from "../types";
 
 const STORAGE_KEY = "gmaplist_v1";
 
+export class StorageQuotaExceededError extends Error {
+  constructor() {
+    super("Storage limit exceeded. Unable to save list data. Please free up space by deleting older lists.");
+    this.name = "StorageQuotaExceededError";
+  }
+}
+
 export interface ListMeta {
   list_title: string;
   last_synced: number;
@@ -45,8 +52,8 @@ function load(): Record<string, ListMeta> {
 function save(data: Record<string, ListMeta>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // localStorage quota exceeded — silently ignore
+  } catch (error) {
+    throw new StorageQuotaExceededError();
   }
 }
 
