@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { parseMapData } from './services/parserService';
-import { parseApiJson } from './services/apiParserService';
+
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
 import { ExtractedData, Place } from './types';
 import { KanbanView } from './components/Kanban/KanbanView';
@@ -112,13 +111,34 @@ export default function App() {
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
+        
         const raw = ")]}'\n" + JSON.stringify(msg.data);
-        const result = parseApiJson(raw, msg.meta);
-        ingestData(result);
-        pushListUrl(result.list_id);
+        
+        const worker = new Worker(new URL('./services/parser.worker.ts', import.meta.url), { type: 'module' });
+        
+        worker.onmessage = (e) => {
+          if (e.data.action === 'PARSE_COMPLETE') {
+            ingestData(e.data.data);
+            pushListUrl(e.data.data.list_id);
+          } else if (e.data.action === 'PARSE_ERROR') {
+            setError(e.data.error);
+          }
+          setIsLoading(false);
+          worker.terminate();
+        };
+        
+        worker.onerror = (err) => {
+          setError('Worker error: ' + err.message);
+          setIsLoading(false);
+          worker.terminate();
+        };
+        
+        worker.postMessage({
+          action: 'PARSE',
+          payload: { rawData: raw, isJson: true, meta: msg.meta }
+        });
       } catch (e) {
         setError('Failed to parse bookmarklet data: ' + String(e));
-      } finally {
         setIsLoading(false);
       }
     };
@@ -132,17 +152,33 @@ export default function App() {
     setError(null);
     try {
       const trimmed = input.trim();
-      let result: ExtractedData;
-      if (trimmed.startsWith(')]}\'') || trimmed.startsWith('{"type":"GMAPLIST') || trimmed.startsWith('[[')) {
-        result = parseApiJson(trimmed);
-      } else {
-        result = await Promise.resolve(parseMapData(trimmed));
-      }
-      ingestData(result);
-      pushListUrl(result.list_id);
+      const isJson = trimmed.startsWith(')]}\'') || trimmed.startsWith('{"type":"GMAPLIST') || trimmed.startsWith('[[');
+      
+      const worker = new Worker(new URL('./services/parser.worker.ts', import.meta.url), { type: 'module' });
+      
+      worker.onmessage = (e) => {
+        if (e.data.action === 'PARSE_COMPLETE') {
+          ingestData(e.data.data);
+          pushListUrl(e.data.data.list_id);
+        } else if (e.data.action === 'PARSE_ERROR') {
+          setError(e.data.error);
+        }
+        setIsLoading(false);
+        worker.terminate();
+      };
+      
+      worker.onerror = (err) => {
+        setError('Worker error: ' + err.message);
+        setIsLoading(false);
+        worker.terminate();
+      };
+      
+      worker.postMessage({
+        action: 'PARSE',
+        payload: { rawData: trimmed, isJson: isJson }
+      });
     } catch (e) {
-      setError('Could not parse the data. Make sure you copied the full output.');
-    } finally {
+      setError("Failed to extract map link. " + String(e));
       setIsLoading(false);
     }
   }, [ingestData]);
