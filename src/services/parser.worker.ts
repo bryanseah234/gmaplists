@@ -14,7 +14,7 @@ self.onmessage = async (event: MessageEvent) => {
       if (isJson) {
         result = parseApiJson(rawData, meta);
       } else {
-        result = await parseMapData(rawData, sourceUrl);
+        result = await parseMapData(rawData);
       }
       
       if (result && result.places.length > 0) {
