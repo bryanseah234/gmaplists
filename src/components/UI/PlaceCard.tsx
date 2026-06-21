@@ -1,5 +1,5 @@
 import React from 'react';
-import { Place } from '../types';
+import { Place } from '../../types';
 import { Star, MessageSquare, MapPin } from 'lucide-react';
 
 interface PlaceCardProps {

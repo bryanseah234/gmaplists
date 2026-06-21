@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLUMNS } from '../types';
+import { COLUMNS } from '../../types';
 import { X } from 'lucide-react';
 
 interface MoveSheetProps {

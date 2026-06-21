@@ -28,30 +28,10 @@ export const getCleanListUrl = async (inputUrl: string): Promise<string | null> 
       }
     }
 
-    // 2. If short link or no ID found, try to fetch via CORS proxy
-    // This allows us to expand redirects or get the HTML source where the ID might be hidden
-    if (inputUrl.includes('goo.gl') || inputUrl.includes('maps.app.goo.gl') || inputUrl.includes('google.com')) {
-      try {
-        // Using allorigins as a CORS proxy
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(inputUrl)}`;
-        const response = await fetch(proxyUrl);
-        const data = await response.json();
-        
-        if (data && data.contents) {
-          contentToCheck = data.contents;
-          
-          // Check the fetched content (HTML or expanded URL) for the ID
-          for (const pattern of ID_PATTERNS) {
-            const match = contentToCheck.match(pattern);
-            if (match && match[1] && match[1].length > 10) {
-              return `https://www.google.com/local/userlists/list/${match[1]}`;
-            }
-          }
-        }
-      } catch (proxyError) {
-        console.warn("Proxy fetch failed, falling back to original URL", proxyError);
-      }
-    }
+    // 2. Short links (goo.gl etc.) require expansion which cannot be done purely client-side
+    // without a CORS proxy. For security and privacy, we no longer use a public proxy.
+    // We rely solely on the regex matches above. If they fail, we return null.
+
 
     return null;
   } catch (e) {

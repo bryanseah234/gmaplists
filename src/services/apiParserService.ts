@@ -395,14 +395,7 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
   const listId: string = data?.[0]?.[0]?.[0] ?? "";
   const rawPlaces: any[] = data?.[0]?.[8] ?? [];
   // meta comes as a separate top-level key in the GMAPLIST_DATA payload
-  // (not stuffed into data[0][99] which gets dropped by sparse array serialisation)
   const metaArr: any[] = meta ?? [];
-  console.log("[gmaplist] rawPlaces:", rawPlaces.length, "metaArr:", metaArr.length);
-  if (metaArr.length > 0) {
-    console.log("[gmaplist] metaArr[0] sample:", JSON.stringify(metaArr[0]));
-  } else {
-    console.warn("[gmaplist] metaArr EMPTY — enrichment data missing");
-  }
 
   const places: Place[] = [];
 
@@ -451,7 +444,6 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
 
     // 4. Unsorted - explicit, visible
     if (!primary) primary = "Unsorted";
-    if (i < 3) console.log("[gmaplist] place[" + i + "] gcid=" + gcid + " type=" + typeLabel + " icon=" + iconSlug + " -> " + primary);
     if (!detailed) detailed = primary === "Unsorted" ? "Unknown" : primary;
 
     const addedAt: number | undefined =
@@ -472,15 +464,6 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
     });
   }
 
-  // Debug: dump all unique gcid -> category mappings
-  const gcidDebug: Record<string, string> = {};
-  for (const p of places) {
-    const key = (p as any).__gcid_raw || p.detailed_category || "?";
-    gcidDebug[key] = p.primary_category;
-  }
-  console.log("[gmaplist] gcid->category map:", JSON.stringify(gcidDebug, null, 2));
-  const unknowns = places.filter(p => p.primary_category === "Unsorted");
-  console.log("[gmaplist] Unsorted count:", unknowns.length, "samples:", unknowns.slice(0,10).map(p=>"'"+p.place_name+"' gcid="+p.detailed_category).join(", "));
 
   // Deduplicate by place_name (same place can appear multiple times in a list)
   const seen = new Set<string>();
