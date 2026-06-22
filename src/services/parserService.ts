@@ -11,6 +11,20 @@ import { ExtractedData, Place, UIConfig } from "../types";
 export const parseMapData = async (input: string): Promise<ExtractedData> => {
   // Auto-detect: if input starts with )]}'  or [ it's API JSON, not DOM text
   const trimmed = input.trim();
+  
+  // Handle fallback JSON paste (which includes metadata)
+  if (trimmed.startsWith("{") && trimmed.includes('"GMAPLIST_DATA"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.type === "GMAPLIST_DATA") {
+        const raw = ")]}'\\n" + JSON.stringify(parsed.data);
+        return parseApiJson(raw, parsed.meta);
+      }
+    } catch (e) {
+      console.warn("Failed to parse pasted GMAPLIST_DATA JSON", e);
+    }
+  }
+  
   if (trimmed.startsWith(")]}") || (trimmed.startsWith("[[") && trimmed.includes('"place_name"') === false)) {
     return parseApiJson(input);
   }
