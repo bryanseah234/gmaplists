@@ -1,6 +1,7 @@
 const CAPTURE_MESSAGE_TYPE = "GMAPLIST_EXTENSION_CAPTURE";
 const APP_PORT_NAME = "gmaplists-app";
 const RUNTIME_DATA_TYPE = "GMAPLIST_EXTENSION_DATA";
+const RUNTIME_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
 const LATEST_PAYLOAD_KEY = "gmaplistsLatestPayload";
 const LAST_REDIRECT_KEY = "gmaplistsLastRedirect";
 
@@ -45,7 +46,7 @@ function broadcastToApp(payload) {
 chrome.webRequest.onBeforeRedirect.addListener(
   (details) => {
     const redirectUrl = details.redirectUrl || "";
-    if (!/https:\/\/www\.google\.com\/maps\//.test(redirectUrl)) return;
+    if (!/^https:\/\/(www\.google\.com\/maps\/|maps\.google\.com\/)/.test(redirectUrl)) return;
 
     const listId = extractListId(redirectUrl);
     if (!listId) return;
@@ -58,6 +59,8 @@ chrome.webRequest.onBeforeRedirect.addListener(
         capturedAt: Date.now(),
       },
     });
+
+    console.info("[GMapLists] stored short URL redirect", { listId, redirectUrl });
   },
   {
     urls: ["*://maps.app.goo.gl/*"],
@@ -80,6 +83,13 @@ chrome.runtime.onConnect.addListener((port) => {
       const payload = stored[LATEST_PAYLOAD_KEY];
       if (payload) {
         port.postMessage({ type: RUNTIME_DATA_TYPE, payload });
+      } else {
+        port.postMessage({
+          type: RUNTIME_STATUS_TYPE,
+          status: "no_payload",
+          message: "Extension connected; no Maps payload captured yet.",
+          capturedAt: Date.now(),
+        });
       }
     });
   });
@@ -91,6 +101,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: message.payload }, () => {
+    console.info("[GMapLists] stored captured payload", message.payload.diagnostics);
     broadcastToApp(message.payload);
     sendResponse({ ok: true });
   });

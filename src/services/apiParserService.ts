@@ -491,6 +491,44 @@ function typeLabelToPrimary(label: string): string | null {
   return null;
 }
 
+function inferCategoryFromText(text: string): { primary: string; detailed: string } | null {
+  const value = text.toLowerCase();
+  const rules: Array<{ primary: string; detailed: string; keywords: string[] }> = [
+    {
+      primary: "See",
+      detailed: "University",
+      keywords: ["university", "college", "campus", "school", "academy", "institute"],
+    },
+    {
+      primary: "See",
+      detailed: "Museum",
+      keywords: ["museum", "gallery", "temple", "shrine", "church", "mosque", "park", "garden", "zoo", "aquarium"],
+    },
+    {
+      primary: "Drink",
+      detailed: "Bar",
+      keywords: ["bar", "pub", "brewery", "cocktail", "speakeasy", "taproom", "nightclub", "wine"],
+    },
+    {
+      primary: "Snack",
+      detailed: "Snack",
+      keywords: ["coffee", "bakery", "dessert", "ice cream", "gelato", "bubble tea", "boba", "patisserie", "pastry"],
+    },
+    {
+      primary: "Food",
+      detailed: "Restaurant",
+      keywords: ["restaurant", "ramen", "sushi", "noodle", "pizza", "burger", "cafe", "diner", "bistro", "kitchen"],
+    },
+    {
+      primary: "Shop",
+      detailed: "Shop",
+      keywords: ["store", "shop", "mall", "market", "boutique", "supermarket", "pharmacy", "bookstore"],
+    },
+  ];
+
+  return rules.find((rule) => rule.keywords.some((keyword) => value.includes(keyword))) ?? null;
+}
+
 function buildMapsLink(p: any[], googlePlaceId?: string, hexPlaceId?: string, lat?: number, lng?: number): string {
   try {
     if (googlePlaceId) {
@@ -582,7 +620,16 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       if (!detailed) detailed = iconSlug.charAt(0).toUpperCase() + iconSlug.slice(1);
     }
 
-    // 4. Unsorted - explicit, visible
+    // 4. Name/address keyword fallback for list-only extension payloads
+    if (!primary) {
+      const inferred = inferCategoryFromText(`${name} ${address ?? ""}`);
+      if (inferred) {
+        primary = inferred.primary;
+        detailed = detailed || inferred.detailed;
+      }
+    }
+
+    // 5. Unsorted - explicit, visible
     if (!primary) primary = "Unsorted";
     if (!detailed) detailed = primary === "Unsorted" ? "Unknown" : primary;
 
@@ -643,7 +690,6 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
-
 
 
 

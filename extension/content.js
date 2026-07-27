@@ -6,8 +6,11 @@
   const MAX_POLL_MS = 15000;
   const RESCAN_INTERVAL_MS = 3000;
   const MAX_RESCAN_MS = 120000;
+  const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
+  const PLACE_ENDPOINT = "/maps/preview/place";
 
   let lastFingerprint = "";
+  const networkPayloads = [];
 
   function stripAntiXssi(value) {
     return value.replace(/^\)\]\}'\n?/, "");
@@ -21,6 +24,113 @@
     } catch {
       return null;
     }
+  }
+
+  function parseMapsResponseText(text) {
+    if (typeof text !== "string" || !text.trim()) return null;
+
+    try {
+      return JSON.parse(stripAntiXssi(text));
+    } catch {
+      return null;
+    }
+  }
+
+  function normalizeUrl(input) {
+    try {
+      if (typeof input === "string") return new URL(input, window.location.href).href;
+      if (input instanceof Request) return input.url;
+      if (input instanceof URL) return input.href;
+    } catch {
+      return "";
+    }
+
+    return "";
+  }
+
+  function shouldCaptureUrl(url) {
+    return url.includes(LIST_ENDPOINT) || url.includes(PLACE_ENDPOINT);
+  }
+
+  function rememberNetworkPayload(url, text, source) {
+    const parsed = parseMapsResponseText(text);
+    if (!parsed) {
+      console.warn("[GMapLists] failed to parse Maps response", { source, url });
+      return;
+    }
+
+    networkPayloads.push({
+      path: ["network", source, networkPayloads.length],
+      parsed,
+      url,
+    });
+
+    if (networkPayloads.length > 80) networkPayloads.shift();
+
+    console.info("[GMapLists] captured Maps response", {
+      source,
+      endpoint: url.includes(LIST_ENDPOINT) ? "entitylist/getlist" : "preview/place",
+      networkPayloadCount: networkPayloads.length,
+    });
+
+    tryCapture();
+  }
+
+  function patchFetch() {
+    const originalFetch = window.fetch;
+    if (typeof originalFetch !== "function" || originalFetch.__gmaplistsPatched) return;
+
+    const patchedFetch = function patchedFetch(input, init) {
+      const url = normalizeUrl(input);
+
+      return originalFetch.apply(this, arguments).then((response) => {
+        if (shouldCaptureUrl(url)) {
+          response.clone().text().then((text) => {
+            rememberNetworkPayload(url, text, "fetch");
+          }).catch((error) => {
+            console.warn("[GMapLists] failed reading fetch response", { url, error });
+          });
+        }
+
+        return response;
+      });
+    };
+
+    patchedFetch.__gmaplistsPatched = true;
+    window.fetch = patchedFetch;
+  }
+
+  function patchXhr() {
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+    if (originalOpen.__gmaplistsPatched || originalSend.__gmaplistsPatched) return;
+
+    XMLHttpRequest.prototype.open = function patchedOpen(method, url) {
+      this.__gmaplistsUrl = normalizeUrl(url);
+      return originalOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.open.__gmaplistsPatched = true;
+
+    XMLHttpRequest.prototype.send = function patchedSend() {
+      if (shouldCaptureUrl(this.__gmaplistsUrl || "")) {
+        this.addEventListener("loadend", () => {
+          try {
+            if (this.responseType && this.responseType !== "text") return;
+            rememberNetworkPayload(this.__gmaplistsUrl, this.responseText, "xhr");
+          } catch (error) {
+            console.warn("[GMapLists] failed reading XHR response", {
+              url: this.__gmaplistsUrl,
+              error,
+            });
+          }
+        });
+      }
+
+      return originalSend.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send.__gmaplistsPatched = true;
   }
 
   function walk(value, visitor, seen = new WeakSet(), path = []) {
@@ -178,6 +288,16 @@
     return payloads;
   }
 
+  function getParsedPayloads() {
+    const seen = new Set();
+    return extractParsedPayloads().concat(networkPayloads).filter(({ parsed, url, path }) => {
+      const key = `${url || ""}:${path.join(".")}:${Array.isArray(parsed?.[0]?.[8]) ? parsed[0][8].length : ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   function buildSyntheticList(detailPayloads) {
     const listId = extractListIdFromUrl(window.location.href) || "extension-app-state";
     const places = detailPayloads.map(({ parsed }, index) => {
@@ -216,7 +336,7 @@
   }
 
   function buildCapture() {
-    const parsedPayloads = extractParsedPayloads();
+    const parsedPayloads = getParsedPayloads();
     const listPayload = parsedPayloads.find(({ parsed }) => looksLikeListPayload(parsed));
     const detailPayloads = parsedPayloads.filter(({ parsed }) => looksLikePlaceDetailPayload(parsed));
 
@@ -242,6 +362,20 @@
       });
     });
 
+    const diagnostics = {
+      mode: listPayload ? "list" : "place-detail",
+      parsedPayloadCount: parsedPayloads.length,
+      networkPayloadCount: networkPayloads.length,
+      detailPayloadCount: detailPayloads.length,
+      placeCount: rawPlaces.length,
+      metaCount: meta.length,
+      metaWithType: meta.filter((item) => item.__type).length,
+      metaWithGcid: meta.filter((item) => item.__gcid).length,
+      metaWithPlaceId: meta.filter((item) => item.__placeId).length,
+      metaWithWebsite: meta.filter((item) => item.__website).length,
+      url: window.location.href,
+    };
+
     return {
       type: PUBLIC_MESSAGE_TYPE,
       source: "gmaplists-extension",
@@ -249,6 +383,7 @@
       capturedAt: Date.now(),
       data,
       meta,
+      diagnostics,
     };
   }
 
@@ -263,6 +398,7 @@
     if (fingerprint === lastFingerprint) return false;
     lastFingerprint = fingerprint;
 
+    console.info("[GMapLists] capture summary", payload.diagnostics);
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, { detail: payload }));
     window.postMessage(payload, window.location.origin);
     window.postMessage({ type: INTERNAL_MESSAGE_TYPE, payload }, window.location.origin);
@@ -302,6 +438,10 @@
       callback();
     }
   }
+
+  patchFetch();
+  patchXhr();
+  console.info("[GMapLists] Maps capture hooks installed");
 
   onReady(startPolling);
 })();

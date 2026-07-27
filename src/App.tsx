@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
-import { parseTakeoutJson } from './services/takeoutParser';
 import { ExtractedData, Place } from './types';
 import { KanbanView } from './components/Kanban/KanbanView';
 import { InputSection } from './components/UI/InputSection';
@@ -12,21 +11,44 @@ type Theme = 'light' | 'dark' | 'system';
 type IncomingMapsPayload = {
   data: unknown;
   meta?: unknown;
+  diagnostics?: unknown;
+};
+
+type ExtensionStatus = {
+  status: string;
+  message?: string;
+  diagnostics?: unknown;
+  capturedAt?: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeExtensionStatus(message: unknown): ExtensionStatus | null {
+  if (!isRecord(message) || message.type !== 'GMAPLIST_EXTENSION_STATUS') return null;
+
+  return {
+    status: typeof message.status === 'string' ? message.status : 'unknown',
+    message: typeof message.message === 'string' ? message.message : undefined,
+    diagnostics: message.diagnostics,
+    capturedAt: typeof message.capturedAt === 'number' ? message.capturedAt : undefined,
+  };
+}
+
 function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | null {
   if (!isRecord(message)) return null;
 
   if (message.type === 'GMAPLIST_DATA' && message.data) {
-    return { data: message.data, meta: message.meta };
+    return { data: message.data, meta: message.meta, diagnostics: message.diagnostics };
   }
 
   if (message.type === 'GMAPLIST_EXTENSION_DATA' && isRecord(message.payload) && message.payload.data) {
-    return { data: message.payload.data, meta: message.payload.meta };
+    return {
+      data: message.payload.data,
+      meta: message.payload.meta,
+      diagnostics: message.payload.diagnostics,
+    };
   }
 
   return null;
@@ -39,6 +61,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== 'undefined'
@@ -131,11 +154,27 @@ export default function App() {
     const handler = (event: MessageEvent) => {
       try {
         const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        const status = normalizeExtensionStatus(msg);
+        if (status) {
+          setExtensionStatus(status);
+          console.info('[GMapLists] extension status', status);
+          return;
+        }
+
         const incoming = normalizeIncomingMapsPayload(msg);
         if (!incoming) return;
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
+        if (incoming.diagnostics) {
+          console.info('[GMapLists] received map payload', incoming.diagnostics);
+          setExtensionStatus({
+            status: 'payload',
+            message: 'Maps payload received by app.',
+            diagnostics: incoming.diagnostics,
+            capturedAt: Date.now(),
+          });
+        }
         
         const raw = ")]}'\n" + JSON.stringify(incoming.data);
         
@@ -207,31 +246,6 @@ export default function App() {
       setIsLoading(false);
     }
   }, [ingestData]);
-
-  const handleTakeoutFileImport = useCallback(async (file: File) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (!file.name.toLowerCase().endsWith('.json')) {
-        throw new Error('Choose a Google Takeout .json file.');
-      }
-
-      const raw = await file.text();
-      const result = parseTakeoutJson(raw, file.name);
-      if (result.places.length === 0) {
-        throw new Error('No places were found in this Takeout file.');
-      }
-
-      ingestData(result);
-      pushListUrl(result.list_id);
-      setIsReceiving(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to import Takeout JSON.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [ingestData, pushListUrl]);
 
   // Handle drag-and-drop category change
   const handleCategoryChange = useCallback((placeName: string, newCategory: string) => {
@@ -343,9 +357,9 @@ export default function App() {
           <div className="flex items-start justify-center min-h-[calc(100vh-80px)] pt-16">
             <InputSection
               onExtract={handleExtract}
-              onFileImport={handleTakeoutFileImport}
               isLoading={isLoading}
               isReceiving={isReceiving}
+              extensionStatus={extensionStatus}
             />
           </div>
         )}
@@ -353,4 +367,3 @@ export default function App() {
     </div>
   );
 }
-
