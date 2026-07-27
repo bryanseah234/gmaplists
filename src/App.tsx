@@ -1,12 +1,36 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
+import { parseTakeoutJson } from './services/takeoutParser';
 import { ExtractedData, Place } from './types';
 import { KanbanView } from './components/Kanban/KanbanView';
 import { InputSection } from './components/UI/InputSection';
 import { Sun, Moon, Monitor, RotateCcw } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
+
+type IncomingMapsPayload = {
+  data: unknown;
+  meta?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | null {
+  if (!isRecord(message)) return null;
+
+  if (message.type === 'GMAPLIST_DATA' && message.data) {
+    return { data: message.data, meta: message.meta };
+  }
+
+  if (message.type === 'GMAPLIST_EXTENSION_DATA' && isRecord(message.payload) && message.payload.data) {
+    return { data: message.payload.data, meta: message.payload.meta };
+  }
+
+  return null;
+}
 
 export default function App() {
   const [data, setData] = useState<ExtractedData | null>(null);
@@ -101,18 +125,19 @@ export default function App() {
     }
   }, []);
 
-  // Listen for postMessage from bookmarklet
+  // Listen for postMessage from bookmarklet or extension app bridge
   useEffect(() => {
     setIsReceiving(true);
     const handler = (event: MessageEvent) => {
       try {
         const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (msg?.type !== 'GMAPLIST_DATA' || !msg.data) return;
+        const incoming = normalizeIncomingMapsPayload(msg);
+        if (!incoming) return;
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
         
-        const raw = ")]}'\n" + JSON.stringify(msg.data);
+        const raw = ")]}'\n" + JSON.stringify(incoming.data);
         
         const worker = new Worker(new URL('./services/parser.worker.ts', import.meta.url), { type: 'module' });
         
@@ -135,16 +160,16 @@ export default function App() {
         
         worker.postMessage({
           action: 'PARSE',
-          payload: { rawData: raw, isJson: true, meta: msg.meta }
+          payload: { rawData: raw, isJson: true, meta: incoming.meta }
         });
       } catch (e) {
-        setError('Failed to parse bookmarklet data: ' + String(e));
+        setError('Failed to parse map data: ' + String(e));
         setIsLoading(false);
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [ingestData]);
+  }, [ingestData, pushListUrl]);
 
   // Handle manual paste fallback
   const handleExtract = useCallback(async (input: string) => {
@@ -182,6 +207,31 @@ export default function App() {
       setIsLoading(false);
     }
   }, [ingestData]);
+
+  const handleTakeoutFileImport = useCallback(async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!file.name.toLowerCase().endsWith('.json')) {
+        throw new Error('Choose a Google Takeout .json file.');
+      }
+
+      const raw = await file.text();
+      const result = parseTakeoutJson(raw, file.name);
+      if (result.places.length === 0) {
+        throw new Error('No places were found in this Takeout file.');
+      }
+
+      ingestData(result);
+      pushListUrl(result.list_id);
+      setIsReceiving(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to import Takeout JSON.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [ingestData, pushListUrl]);
 
   // Handle drag-and-drop category change
   const handleCategoryChange = useCallback((placeName: string, newCategory: string) => {
@@ -293,6 +343,7 @@ export default function App() {
           <div className="flex items-start justify-center min-h-[calc(100vh-80px)] pt-16">
             <InputSection
               onExtract={handleExtract}
+              onFileImport={handleTakeoutFileImport}
               isLoading={isLoading}
               isReceiving={isReceiving}
             />
@@ -302,6 +353,4 @@ export default function App() {
     </div>
   );
 }
-
-
 

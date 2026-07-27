@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Map as MapIcon, Copy, Check, Radio } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Map as MapIcon, Copy, Check, Radio, Upload, FileJson } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../../config/constants';
 
 interface InputSectionProps {
   onExtract: (input: string) => Promise<void>;
+  onFileImport: (file: File) => Promise<void>;
   isLoading: boolean;
   isReceiving: boolean;
 }
 
-export const InputSection: React.FC<InputSectionProps> = ({ isReceiving }) => {
+export const InputSection: React.FC<InputSectionProps> = ({ onFileImport, isLoading, isReceiving }) => {
   const [copied, setCopied] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
 
@@ -18,6 +21,31 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
+  };
+
+  const importFile = (file?: File) => {
+    if (!file || isLoading) return;
+    void onFileImport(file);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    importFile(event.currentTarget.files?.[0]);
+    event.currentTarget.value = '';
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    importFile(event.dataTransfer.files?.[0]);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
   };
 
   return (
@@ -109,6 +137,43 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving }) => {
           </div>
         </div>
 
+      </div>
+
+      <div
+        className={`w-full rounded-2xl border border-dashed px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors ${
+          isDragging
+            ? 'bg-brand-50 dark:bg-brand-950/20 border-brand-400 dark:border-brand-600'
+            : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700'
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 flex-shrink-0">
+            <FileJson size={20} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">Import Google Takeout JSON</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Drop Saved Places.json here or choose a file.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={isLoading}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+        >
+          <Upload size={15} />
+          Choose JSON
+        </button>
       </div>
     </div>
   );

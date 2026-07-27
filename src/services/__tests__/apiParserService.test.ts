@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseApiJson } from '../apiParserService';
+import { flattenAndFind, parseApiJson } from '../apiParserService';
 
 describe('apiParserService', () => {
+  it('finds the first nested value matching a heuristic', () => {
+    const nested = ['skip', [null, ['target', ['later']]]];
+    expect(flattenAndFind(nested, (value) => value === 'target')).toBe('target');
+  });
+
   it('parses valid JSON list data', () => {
     const mockJson = [
       [
@@ -84,5 +89,64 @@ describe('apiParserService', () => {
 
     expect(result.places[0].primary_category).toBe("Snack");
     expect(result.places[1].primary_category).toBe("Drink");
+  });
+
+  it('persists coordinates, price, address, and heuristic detail fields', () => {
+    const mockJson = [
+      [
+        [["list123"]],
+        null,
+        [null, null, "https://list.url"],
+        null,
+        "Rich Detail List",
+        null,
+        null,
+        null,
+        [
+          [
+            null,
+            [
+              null,
+              null,
+              "Nested Cafe, old address text",
+              null,
+              "123 Main St, Singapore",
+              [null, null, 1.3521, 103.8198],
+              ["https://www.google.com/maps/place/nested-cafe", "https://nested.example"],
+              ["ChIJabcdef123456789"],
+              ["+65 1234 5678"],
+              ["CLOSED"],
+            ],
+            "Nested Cafe",
+            "Try the lunch set",
+            null,
+            null,
+            null,
+            null,
+            null,
+            [1680000000],
+          ],
+        ],
+      ],
+    ];
+
+    const mockMeta = [
+      { __gcid: "gcid:cafe", __type: "Cafe", __rating: 4.6, __reviews: 42, __price: 2, __hexId: "0x1:0x2" },
+    ];
+
+    const raw = ")]}'\n" + JSON.stringify(mockJson);
+    const result = parseApiJson(raw, mockMeta);
+
+    expect(result.places[0]).toMatchObject({
+      place_name: "Nested Cafe",
+      price_level: "$$",
+      lat: 1.3521,
+      lng: 103.8198,
+      address: "123 Main St, Singapore",
+      phone: "+65 1234 5678",
+      website: "https://nested.example",
+      google_place_id: "ChIJabcdef123456789",
+      business_status: "CLOSED",
+    });
   });
 });

@@ -29,6 +29,10 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     return parseApiJson(input);
   }
 
+  return parseListText(input);
+};
+
+export const parseListText = async (input: string): Promise<ExtractedData> => {
   const lines = input.split(/\n+/);
   const places: Place[] = [];
   let listTitle = "My Saved Places";
@@ -130,6 +134,14 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
       review_count: 0,
       user_notes: "",
       google_maps_link: link,
+      price_level: undefined,
+      lat: undefined,
+      lng: undefined,
+      address: undefined,
+      phone: undefined,
+      website: undefined,
+      google_place_id: undefined,
+      business_status: undefined,
       is_override: false,
     };
 
@@ -239,5 +251,4 @@ export const parseMapData = async (input: string): Promise<ExtractedData> => {
     places
   };
 };
-
 
