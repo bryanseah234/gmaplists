@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GMapLists Parser Companion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Development scaffold for extracting Google Maps list data client-side.",
   "permissions": [
     "activeTab",
@@ -11,6 +11,7 @@
   ],
   "host_permissions": [
     "*://www.google.com/*",
+    "*://maps.google.com/*",
     "*://maps.app.goo.gl/*",
     "https://gmaplist.hong-yi.me/*",
     "http://localhost/*",
@@ -24,6 +25,7 @@
     {
       "matches": [
         "*://www.google.com/*",
+        "*://maps.google.com/*",
         "*://maps.app.goo.gl/*"
       ],
       "js": [
@@ -35,6 +37,7 @@
     {
       "matches": [
         "*://www.google.com/*",
+        "*://maps.google.com/*",
         "*://maps.app.goo.gl/*"
       ],
       "js": [

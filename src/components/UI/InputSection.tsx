@@ -1,18 +1,40 @@
-import React, { useRef, useState } from 'react';
-import { Map as MapIcon, Copy, Check, Radio, Upload, FileJson } from 'lucide-react';
+import React, { useState } from 'react';
+import { Map as MapIcon, Copy, Check, Radio } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../../config/constants';
 
 interface InputSectionProps {
   onExtract: (input: string) => Promise<void>;
-  onFileImport: (file: File) => Promise<void>;
   isLoading: boolean;
   isReceiving: boolean;
+  extensionStatus?: {
+    status: string;
+    message?: string;
+    diagnostics?: unknown;
+    capturedAt?: number;
+  } | null;
 }
 
-export const InputSection: React.FC<InputSectionProps> = ({ onFileImport, isLoading, isReceiving }) => {
+function getDiagnosticSummary(diagnostics: unknown): string | null {
+  if (!diagnostics || typeof diagnostics !== 'object' || Array.isArray(diagnostics)) return null;
+
+  const values = diagnostics as Record<string, unknown>;
+  const placeCount = typeof values.placeCount === 'number' ? values.placeCount : undefined;
+  const networkPayloadCount = typeof values.networkPayloadCount === 'number' ? values.networkPayloadCount : undefined;
+  const detailPayloadCount = typeof values.detailPayloadCount === 'number' ? values.detailPayloadCount : undefined;
+  const metaWithType = typeof values.metaWithType === 'number' ? values.metaWithType : undefined;
+  const metaWithGcid = typeof values.metaWithGcid === 'number' ? values.metaWithGcid : undefined;
+
+  return [
+    placeCount != null ? `${placeCount} places` : null,
+    networkPayloadCount != null ? `${networkPayloadCount} network payloads` : null,
+    detailPayloadCount != null ? `${detailPayloadCount} detail payloads` : null,
+    metaWithType != null ? `${metaWithType} types` : null,
+    metaWithGcid != null ? `${metaWithGcid} gcids` : null,
+  ].filter(Boolean).join(' · ') || null;
+}
+
+export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensionStatus }) => {
   const [copied, setCopied] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
 
@@ -21,31 +43,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onFileImport, isLoad
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
-  };
-
-  const importFile = (file?: File) => {
-    if (!file || isLoading) return;
-    void onFileImport(file);
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    importFile(event.currentTarget.files?.[0]);
-    event.currentTarget.value = '';
-  };
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    importFile(event.dataTransfer.files?.[0]);
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (!isDragging) setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
   };
 
   return (
@@ -62,6 +59,31 @@ export const InputSection: React.FC<InputSectionProps> = ({ onFileImport, isLoad
         <p className="text-base text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
           Turn your Google Maps saved list into a Kanban board — categorise, sort, and copy places for tagging.
         </p>
+      </div>
+
+      <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0 ${
+            extensionStatus?.status === 'payload'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+              : extensionStatus?.status === 'connected'
+                ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300'
+          }`}>
+            <Radio size={17} className={isReceiving ? 'animate-pulse' : ''} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+              Extension capture
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+              {extensionStatus?.message ?? 'Open this app and Google Maps with the unpacked extension enabled.'}
+            </p>
+          </div>
+        </div>
+        <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:text-right">
+          {getDiagnosticSummary(extensionStatus?.diagnostics) ?? (isReceiving ? 'Listening...' : 'No capture yet')}
+        </div>
       </div>
 
       {/* 3 step cards side by side */}
@@ -137,43 +159,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onFileImport, isLoad
           </div>
         </div>
 
-      </div>
-
-      <div
-        className={`w-full rounded-2xl border border-dashed px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors ${
-          isDragging
-            ? 'bg-brand-50 dark:bg-brand-950/20 border-brand-400 dark:border-brand-600'
-            : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700'
-        }`}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 flex-shrink-0">
-            <FileJson size={20} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-white">Import Google Takeout JSON</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Drop Saved Places.json here or choose a file.</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold hover:bg-zinc-700 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
-        >
-          <Upload size={15} />
-          Choose JSON
-        </button>
       </div>
     </div>
   );

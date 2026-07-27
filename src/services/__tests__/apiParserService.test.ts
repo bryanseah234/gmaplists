@@ -61,6 +61,29 @@ describe('apiParserService', () => {
     expect(result.places).toHaveLength(1);
     expect(result.places[0].primary_category).toBe("Unsorted");
   });
+
+  it('infers broad category from place name when extension data is list-only', () => {
+    const mockJson = [
+      [
+        null, null, null, null, "No Detail List", null, null, null,
+        [
+          [null, null, "Chuo University Tama Campus", ""],
+          [null, null, "Hidden Cocktail Bar", ""],
+        ]
+      ]
+    ];
+    const raw = ")]}'\n" + JSON.stringify(mockJson);
+    const result = parseApiJson(raw);
+
+    expect(result.places[0]).toMatchObject({
+      primary_category: "See",
+      detailed_category: "University",
+    });
+    expect(result.places[1]).toMatchObject({
+      primary_category: "Drink",
+      detailed_category: "Bar",
+    });
+  });
   
   it('falls back gracefully if JSON.parse fails', () => {
     const raw = "invalid json";
