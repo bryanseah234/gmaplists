@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseMapData } from '../parserService';
+import { parseListText, parseMapData } from '../parserService';
 
 describe('parserService', () => {
   it('parses raw pipe-separated DOM text', async () => {
@@ -19,6 +19,22 @@ Another Place | 3.0 | (50) | Park | 456 Elm St
     expect(result.places[1].star_rating).toBe(3.0);
     expect(result.places[1].review_count).toBe(50);
     expect(result.places[1].primary_category).toBe("See");
+  });
+
+  it('sets structured API-only fields to undefined for raw text parsing', async () => {
+    const rawText = `Place With Sparse Text | 4.2 | (15) | Cafe`;
+    const result = await parseListText(rawText);
+
+    expect(result.places[0]).toMatchObject({
+      price_level: undefined,
+      lat: undefined,
+      lng: undefined,
+      address: undefined,
+      phone: undefined,
+      website: undefined,
+      google_place_id: undefined,
+      business_status: undefined,
+    });
   });
 
   it('delegates to parseApiJson if input is JSON', async () => {
