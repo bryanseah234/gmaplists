@@ -8,8 +8,13 @@
   const MAX_RESCAN_MS = 120000;
   const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
   const PLACE_ENDPOINT = "/maps/preview/place";
+  const ACTIVE_PAGE_DELAY_MS = 350;
+  const ACTIVE_ENRICH_BATCH_SIZE = 20;
+  const ACTIVE_MAX_PAGES = 200;
 
   let lastFingerprint = "";
+  let activeExtractionPromise = null;
+  let activeExtractionStartedFrom = "";
   const networkPayloads = [];
 
   function stripAntiXssi(value) {
@@ -72,6 +77,13 @@
       endpoint: url.includes(LIST_ENDPOINT) ? "entitylist/getlist" : "preview/place",
       networkPayloadCount: networkPayloads.length,
     });
+
+    if (url.includes(LIST_ENDPOINT)) {
+      scheduleActiveExtraction(url);
+    } else if (url.includes(PLACE_ENDPOINT)) {
+      const getlistUrl = findGetlistUrlFromPerformance();
+      if (getlistUrl) scheduleActiveExtraction(getlistUrl);
+    }
 
     tryCapture();
   }
@@ -298,6 +310,267 @@
     });
   }
 
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function buildListPageUrl(baseUrl, cursor) {
+    const pbMatch = baseUrl.match(/([?&]pb=)([^&]+)/);
+    if (!pbMatch) return baseUrl;
+
+    let pb = decodeURIComponent(pbMatch[2]);
+    pb = pb.replace(/!4i\d+/, "!4i500").replace(/!5B[^!]*/g, "");
+
+    if (cursor) {
+      const safeCursor = cursor.split("+").join("-").split("/").join("_").split("=").join("");
+      pb = pb.replace("!4i500", `!4i500!5B${safeCursor}`);
+    }
+
+    return baseUrl.replace(pbMatch[0], `${pbMatch[1]}${encodeURIComponent(pb)}`);
+  }
+
+  function findGetlistUrlFromPerformance() {
+    return performance.getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .find((name) => typeof name === "string" && name.includes(LIST_ENDPOINT));
+  }
+
+  function getPlacePbTemplate() {
+    const entries = performance.getEntriesByType("resource");
+
+    for (const entry of entries) {
+      if (!entry.name.includes(PLACE_ENDPOINT)) continue;
+
+      try {
+        const url = new URL(entry.name);
+        const pb = decodeURIComponent(url.searchParams.get("pb") || "");
+        if (pb) return pb;
+      } catch {
+        // Keep scanning other resource entries.
+      }
+    }
+
+    for (const entry of entries) {
+      if (!entry.name.includes("tbm=map")) continue;
+
+      try {
+        const url = new URL(entry.name);
+        const pb = decodeURIComponent(url.searchParams.get("pb") || "");
+        if (pb.length > 100) {
+          return pb.replace(
+            /(!72m2!1m1!1s0x[^!]+)+/g,
+            "!1s0x0000000000000000:0x0000000000000000"
+          );
+        }
+      } catch {
+        // Keep scanning other resource entries.
+      }
+    }
+
+    return null;
+  }
+
+  function extractValidPlaces(data) {
+    const raw = Array.isArray(data?.[0]?.[8]) ? data[0][8] : [];
+    return raw.filter((place) =>
+      Array.isArray(place) && typeof place[2] === "string" && place[2].length > 0
+    );
+  }
+
+  function getListTotal(data, currentCount) {
+    return typeof data?.[0]?.[12] === "number" && data[0][12] > 0 ? data[0][12] : currentCount;
+  }
+
+  function getNextCursor(data) {
+    const cursor = data?.[1];
+    if (typeof cursor === "string" && cursor.length > 8) return cursor;
+    if (Array.isArray(cursor) && typeof cursor[0] === "string" && cursor[0].length > 8) return cursor[0];
+    return null;
+  }
+
+  function extractIconSlug(parsed, rawText) {
+    const candidate = typeof parsed?.[29] === "string" ? parsed[29] : rawText;
+    const match = candidate.match(/iamhere\/([^."\\/]+)\.png/);
+    return match?.[1];
+  }
+
+  async function fetchMapsJson(url) {
+    const response = await fetch(url, { credentials: "include" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const parsed = parseMapsResponseText(text);
+    if (!parsed) throw new Error("Failed to parse Google Maps JSON response.");
+    return { text, parsed };
+  }
+
+  async function fetchAllListPlaces(getlistUrl) {
+    const allPlaces = [];
+    let firstData = null;
+    let nextUrl = buildListPageUrl(getlistUrl, null);
+    let total = 0;
+    const seenCursors = new Set();
+
+    for (let page = 1; page <= ACTIVE_MAX_PAGES; page++) {
+      console.info("[GMapLists] active list fetch", { page, fetched: allPlaces.length });
+      const { parsed } = await fetchMapsJson(nextUrl);
+
+      if (page === 1) firstData = parsed;
+
+      const validPlaces = extractValidPlaces(parsed);
+      allPlaces.push(...validPlaces);
+      total = getListTotal(parsed, allPlaces.length);
+
+      const cursor = getNextCursor(parsed);
+      if (!cursor || allPlaces.length >= total || seenCursors.has(cursor)) {
+        break;
+      }
+
+      seenCursors.add(cursor);
+      nextUrl = buildListPageUrl(getlistUrl, cursor);
+      await delay(ACTIVE_PAGE_DELAY_MS);
+    }
+
+    if (firstData?.[0]) firstData[0][8] = allPlaces;
+
+    return {
+      firstData,
+      allPlaces,
+      total,
+    };
+  }
+
+  async function enrichPlace(place, pbTemplate) {
+    const fallbackMeta = cleanObject({
+      __lat: place?.[1]?.[5]?.[2],
+      __lng: place?.[1]?.[5]?.[3],
+      __address: place?.[1]?.[4] || place?.[1]?.[2],
+      __hexId: hexIdFromListPlace(place),
+    });
+
+    if (!pbTemplate || !place?.[1]?.[5]) return { place, meta: fallbackMeta };
+
+    const hexId = fallbackMeta.__hexId;
+    const lat = place[1][5][2];
+    const lng = place[1][5][3];
+    if (!hexId || lat == null || lng == null) return { place, meta: fallbackMeta };
+
+    try {
+      const pb = pbTemplate
+        .replace(/!1s0x[^!]+/, `!1s${hexId}`)
+        .replace(/!3d[\d.-]+/, `!3d${lat}`)
+        .replace(/!4d[\d.-]+(?=!)/, `!4d${lng}`);
+      const url = `https://www.google.com/maps/preview/place?authuser=0&hl=en&gl=sg&pb=${encodeURIComponent(pb)}`;
+      const { text, parsed } = await fetchMapsJson(url);
+      const detailMeta = extractDetailMeta(parsed);
+
+      return {
+        place,
+        meta: cleanObject({
+          ...fallbackMeta,
+          ...detailMeta,
+          __icon: extractIconSlug(parsed, text),
+          __hexId: detailMeta.__hexId || hexId,
+        }),
+      };
+    } catch (error) {
+      console.warn("[GMapLists] place enrichment failed", {
+        name: place?.[2],
+        hexId,
+        error,
+      });
+      return { place, meta: fallbackMeta };
+    }
+  }
+
+  async function enrichPlaces(places, pbTemplate) {
+    const enriched = [];
+
+    for (let index = 0; index < places.length; index += ACTIVE_ENRICH_BATCH_SIZE) {
+      const batch = places.slice(index, index + ACTIVE_ENRICH_BATCH_SIZE);
+      console.info("[GMapLists] active place enrichment", {
+        done: index,
+        total: places.length,
+        hasTemplate: Boolean(pbTemplate),
+      });
+
+      const results = await Promise.all(batch.map((place) => enrichPlace(place, pbTemplate)));
+      enriched.push(...results);
+    }
+
+    return enriched;
+  }
+
+  function buildActivePayload(firstData, enrichedPlaces, diagnostics) {
+    if (firstData?.[0]) {
+      firstData[0][8] = enrichedPlaces.map((entry) => entry.place);
+    }
+
+    return {
+      type: PUBLIC_MESSAGE_TYPE,
+      source: "gmaplists-extension",
+      pageUrl: window.location.href,
+      capturedAt: Date.now(),
+      data: firstData,
+      meta: enrichedPlaces.map((entry) => entry.meta),
+      diagnostics,
+    };
+  }
+
+  function scheduleActiveExtraction(getlistUrl) {
+    if (!getlistUrl) return;
+
+    const normalizedUrl = buildListPageUrl(getlistUrl, null);
+    if (activeExtractionPromise && normalizedUrl === activeExtractionStartedFrom) return;
+
+    activeExtractionStartedFrom = normalizedUrl;
+    activeExtractionPromise = runActiveExtraction(normalizedUrl).finally(() => {
+      activeExtractionPromise = null;
+    });
+  }
+
+  async function runActiveExtraction(getlistUrl) {
+    try {
+      console.info("[GMapLists] active extraction started", { getlistUrl });
+      const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
+      if (!firstData || allPlaces.length === 0) {
+        console.warn("[GMapLists] active extraction found no places");
+        return;
+      }
+
+      const pbTemplate = getPlacePbTemplate();
+      const enrichedPlaces = await enrichPlaces(allPlaces, pbTemplate);
+      const diagnostics = {
+        mode: "active-list",
+        fullExtraction: true,
+        pageUrl: window.location.href,
+        placeCount: allPlaces.length,
+        total,
+        metaCount: enrichedPlaces.length,
+        metaWithType: enrichedPlaces.filter((entry) => entry.meta.__type).length,
+        metaWithGcid: enrichedPlaces.filter((entry) => entry.meta.__gcid).length,
+        metaWithPlaceId: enrichedPlaces.filter((entry) => entry.meta.__placeId).length,
+        metaWithWebsite: enrichedPlaces.filter((entry) => entry.meta.__website).length,
+        hasPlacePbTemplate: Boolean(pbTemplate),
+      };
+
+      dispatchCapture(buildActivePayload(firstData, enrichedPlaces, diagnostics));
+    } catch (error) {
+      console.error("[GMapLists] active extraction failed", error);
+    }
+  }
+
+  function startActiveExtractionPolling() {
+    const startedAt = Date.now();
+    const poll = window.setInterval(() => {
+      const url = findGetlistUrlFromPerformance();
+      if (url) scheduleActiveExtraction(url);
+
+      if (url || Date.now() - startedAt > MAX_RESCAN_MS) {
+        window.clearInterval(poll);
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
   function buildSyntheticList(detailPayloads) {
     const listId = extractListIdFromUrl(window.location.href) || "extension-app-state";
     const places = detailPayloads.map(({ parsed }, index) => {
@@ -443,5 +716,8 @@
   patchXhr();
   console.info("[GMapLists] Maps capture hooks installed");
 
-  onReady(startPolling);
+  onReady(() => {
+    startPolling();
+    startActiveExtractionPolling();
+  });
 })();
