@@ -57,7 +57,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
           GMapList
         </h1>
         <p className="text-base text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
-          Turn your Google Maps saved list into a Kanban board — categorise, sort, and copy places for tagging.
+          Extract Google Maps saved places, group them, and copy phone-ready links for mobile tagging.
         </p>
       </div>
 
@@ -144,7 +144,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
             <p className="font-semibold text-zinc-900 dark:text-white text-sm">Run the bookmarklet</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
               Click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
-              Your Kanban board appears here automatically.
+              Your grouped link workspace appears here automatically.
             </p>
           </div>
           <div className="mt-auto">

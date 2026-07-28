@@ -88,6 +88,21 @@ function isPlaceId(value: any): value is string {
   return typeof value === "string" && PLACE_ID_PATTERN.test(value);
 }
 
+function isGoogleMapsUrl(value: any): value is string {
+  if (typeof value !== "string") return false;
+
+  const candidate = value.trim();
+  if (!/^https?:\/\//i.test(candidate)) return false;
+
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    return (host === "google.com" || host.endsWith(".google.com")) && url.pathname.includes("/maps");
+  } catch {
+    return false;
+  }
+}
+
 function isLat(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= -90 && value <= 90;
 }
@@ -491,64 +506,26 @@ function typeLabelToPrimary(label: string): string | null {
   return null;
 }
 
-function inferCategoryFromText(text: string): { primary: string; detailed: string } | null {
-  const value = text.toLowerCase();
-  const rules: Array<{ primary: string; detailed: string; keywords: string[] }> = [
-    {
-      primary: "See",
-      detailed: "University",
-      keywords: ["university", "college", "campus", "school", "academy", "institute"],
-    },
-    {
-      primary: "See",
-      detailed: "Museum",
-      keywords: ["museum", "gallery", "temple", "shrine", "church", "mosque", "park", "garden", "zoo", "aquarium"],
-    },
-    {
-      primary: "Drink",
-      detailed: "Bar",
-      keywords: ["bar", "pub", "brewery", "cocktail", "speakeasy", "taproom", "nightclub", "wine"],
-    },
-    {
-      primary: "Snack",
-      detailed: "Snack",
-      keywords: ["coffee", "bakery", "dessert", "ice cream", "gelato", "bubble tea", "boba", "patisserie", "pastry"],
-    },
-    {
-      primary: "Food",
-      detailed: "Restaurant",
-      keywords: ["restaurant", "ramen", "sushi", "noodle", "pizza", "burger", "cafe", "diner", "bistro", "kitchen"],
-    },
-    {
-      primary: "Shop",
-      detailed: "Shop",
-      keywords: ["store", "shop", "mall", "market", "boutique", "supermarket", "pharmacy", "bookstore"],
-    },
-  ];
-
-  return rules.find((rule) => rule.keywords.some((keyword) => value.includes(keyword))) ?? null;
-}
-
-function buildMapsLink(p: any[], googlePlaceId?: string, hexPlaceId?: string, lat?: number, lng?: number): string {
+function buildMapsLink(p: any[], googlePlaceId?: string, rawMapsLink?: string, lat?: number, lng?: number, address?: string): string {
   try {
     if (googlePlaceId) {
-      return "https://www.google.com/maps/place/?q=place_id:" + googlePlaceId;
+      return "https://www.google.com/maps/search/?api=1&query_place_id=" + encodeURIComponent(googlePlaceId);
     }
 
-    // Prefer hex place_id — opens correct place in Maps app reliably
-    if (hexPlaceId) {
-      return "https://www.google.com/maps/place/?q=place_id:" + hexPlaceId;
+    if (rawMapsLink) {
+      return rawMapsLink;
     }
+
     const loc = p[1];
     if (!loc) return "";
-    // Fallback: lat/lon + name search (works, no 404s unlike /g/ paths)
+    // Fallback: lat/lon + name search. Internal 0x... IDs are not valid place_id values.
     const fallbackLat = lat ?? loc[5]?.[2];
     const fallbackLng = lng ?? loc[5]?.[3];
-    const name = p[2] ?? "";
+    const query = [p[2], address].filter(Boolean).join(" ");
     if (fallbackLat != null && fallbackLng != null) {
-      return "https://www.google.com/maps/search/" + encodeURIComponent(name) + "/@" + fallbackLat + "," + fallbackLng + ",17z";
+      return "https://www.google.com/maps/search/" + encodeURIComponent(query) + "/@" + fallbackLat + "," + fallbackLng + ",17z";
     }
-    return "";
+    return query ? "https://www.google.com/maps/search/" + encodeURIComponent(query) : "";
   } catch { return ""; }
 }
 
@@ -588,6 +565,7 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
     const priceLevel = normalizePriceLevel(placeMeta.__price ?? placeMeta.price_level);
     const website = flattenAndFind(searchRoots, isExternalWebsite);
     const googlePlaceId = flattenAndFind(searchRoots, isPlaceId);
+    const rawMapsLink = asString(placeMeta.__mapsUrl) ?? flattenAndFind(searchRoots, isGoogleMapsUrl);
     const phone = flattenAndFind(searchRoots, isPhone);
     const address = pickAddress(p, placeMeta, name);
     const businessStatus = asString(placeMeta.__businessStatus) ?? asString(placeMeta.business_status) ?? pickBusinessStatus(searchRoots);
@@ -620,16 +598,7 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       if (!detailed) detailed = iconSlug.charAt(0).toUpperCase() + iconSlug.slice(1);
     }
 
-    // 4. Name/address keyword fallback for list-only extension payloads
-    if (!primary) {
-      const inferred = inferCategoryFromText(`${name} ${address ?? ""}`);
-      if (inferred) {
-        primary = inferred.primary;
-        detailed = detailed || inferred.detailed;
-      }
-    }
-
-    // 5. Unsorted - explicit, visible
+    // 4. Unsorted - explicit, visible. Ambiguous items are better sent to Gemini.
     if (!primary) primary = "Unsorted";
     if (!detailed) detailed = primary === "Unsorted" ? "Unknown" : primary;
 
@@ -643,7 +612,7 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       star_rating: rating,
       review_count: reviews,
       user_notes: userNote || undefined,
-      google_maps_link: buildMapsLink(p, googlePlaceId, hexPlaceId, lat, lng),
+      google_maps_link: buildMapsLink(p, googlePlaceId, rawMapsLink, lat, lng, address),
       price_level: priceLevel,
       lat,
       lng,
@@ -690,7 +659,6 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
-
 
 
 

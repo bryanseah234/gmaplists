@@ -62,7 +62,7 @@ describe('apiParserService', () => {
     expect(result.places[0].primary_category).toBe("Unsorted");
   });
 
-  it('infers broad category from place name when extension data is list-only', () => {
+  it('keeps list-only extension data unsorted instead of guessing from names', () => {
     const mockJson = [
       [
         null, null, null, null, "No Detail List", null, null, null,
@@ -76,12 +76,12 @@ describe('apiParserService', () => {
     const result = parseApiJson(raw);
 
     expect(result.places[0]).toMatchObject({
-      primary_category: "See",
-      detailed_category: "University",
+      primary_category: "Unsorted",
+      detailed_category: "Unknown",
     });
     expect(result.places[1]).toMatchObject({
-      primary_category: "Drink",
-      detailed_category: "Bar",
+      primary_category: "Unsorted",
+      detailed_category: "Unknown",
     });
   });
   
@@ -171,5 +171,44 @@ describe('apiParserService', () => {
       google_place_id: "ChIJabcdef123456789",
       business_status: "CLOSED",
     });
+  });
+
+  it('does not use internal hex ids as Google place_id links', () => {
+    const mockJson = [
+      [
+        [["list123"]],
+        null,
+        [null, null, "https://list.url"],
+        null,
+        "Hex Link List",
+        null,
+        null,
+        null,
+        [
+          [
+            null,
+            [
+              null,
+              null,
+              "Place address text",
+              null,
+              "10 Test Road",
+              [null, null, 1.3, 103.8],
+            ],
+            "Hex Only Bar",
+            "",
+          ],
+        ],
+      ],
+    ];
+
+    const mockMeta = [
+      { __hexId: "0x31da19b066f8cac9:0x1a822ab9ded25293" },
+    ];
+
+    const result = parseApiJson(")]}'\n" + JSON.stringify(mockJson), mockMeta);
+
+    expect(result.places[0].google_maps_link).not.toContain("place_id:0x");
+    expect(result.places[0].google_maps_link).toContain("/maps/search/");
   });
 });
