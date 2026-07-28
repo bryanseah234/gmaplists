@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Map as MapIcon, Copy, Check, Radio } from 'lucide-react';
+import { Map as MapIcon, Copy, Check, Radio, Terminal } from 'lucide-react';
 import { SCROLL_BOOKMARKLET_CODE } from '../../config/constants';
 
 interface InputSectionProps {
@@ -12,6 +12,13 @@ interface InputSectionProps {
     diagnostics?: unknown;
     capturedAt?: number;
   } | null;
+  extensionLogs?: Array<{
+    level?: string;
+    message?: string;
+    details?: unknown;
+    capturedAt?: number;
+    pageUrl?: string;
+  }>;
 }
 
 function getDiagnosticSummary(diagnostics: unknown): string | null {
@@ -33,10 +40,19 @@ function getDiagnosticSummary(diagnostics: unknown): string | null {
   ].filter(Boolean).join(' · ') || null;
 }
 
-export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensionStatus }) => {
-  const [copied, setCopied] = useState(false);
+function formatDebugLog(log: NonNullable<InputSectionProps['extensionLogs']>[number]): string {
+  const time = log.capturedAt ? new Date(log.capturedAt).toLocaleTimeString() : '';
+  const details = log.details ? ` ${JSON.stringify(log.details)}` : '';
+  return `[${time}] ${log.level ?? 'info'} ${log.message ?? 'Extension log'}${details}`;
+}
 
-  const bookmarkletHref = `javascript:${encodeURIComponent(SCROLL_BOOKMARKLET_CODE)}`;
+export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensionStatus, extensionLogs = [] }) => {
+  const [copied, setCopied] = useState(false);
+  const [copiedLogs, setCopiedLogs] = useState(false);
+
+  const bookmarkletHref = `javascript:${encodeURIComponent(
+    SCROLL_BOOKMARKLET_CODE.replace('__GMAPLIST_APP_URL__', window.location.origin)
+  )}`;
 
   const copyBookmarklet = () => {
     navigator.clipboard.writeText(bookmarkletHref).then(() => {
@@ -44,6 +60,16 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
       setTimeout(() => setCopied(false), 2500);
     });
   };
+
+  const copyDebugLogs = () => {
+    const text = extensionLogs.map(formatDebugLog).join('\n').trim();
+    navigator.clipboard.writeText(text || 'No extension debug logs yet.').then(() => {
+      setCopiedLogs(true);
+      setTimeout(() => setCopiedLogs(false), 2500);
+    });
+  };
+
+  const recentLogs = extensionLogs.slice(-8).reverse();
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-10">
@@ -83,6 +109,33 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
         </div>
         <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:text-right">
           {getDiagnosticSummary(extensionStatus?.diagnostics) ?? (isReceiving ? 'Listening...' : 'No capture yet')}
+        </div>
+      </div>
+
+      <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal size={16} className="text-zinc-400" />
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">Extension debug</p>
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">{extensionLogs.length} logs</span>
+          </div>
+          <button
+            onClick={copyDebugLogs}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
+          >
+            {copiedLogs ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy logs</>}
+          </button>
+        </div>
+        <div className="max-h-48 overflow-auto bg-zinc-950 px-4 py-3 font-mono text-[11px] leading-relaxed text-zinc-300">
+          {recentLogs.length > 0 ? (
+            recentLogs.map((log, index) => (
+              <div key={`${log.capturedAt ?? index}-${log.message ?? index}`} className="whitespace-pre-wrap break-words">
+                {formatDebugLog(log)}
+              </div>
+            ))
+          ) : (
+            <div className="text-zinc-500">No extension logs received yet. Reload the extension, then reload this page.</div>
+          )}
         </div>
       </div>
 

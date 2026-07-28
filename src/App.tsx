@@ -21,6 +21,14 @@ type ExtensionStatus = {
   capturedAt?: number;
 };
 
+type ExtensionLogEntry = {
+  level?: string;
+  message?: string;
+  details?: unknown;
+  capturedAt?: number;
+  pageUrl?: string;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -54,6 +62,19 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
   return null;
 }
 
+function normalizeExtensionLogs(message: unknown): ExtensionLogEntry[] | null {
+  if (!isRecord(message) || message.type !== 'GMAPLIST_EXTENSION_LOGS') return null;
+
+  const logs = Array.isArray(message.logs) ? message.logs : [];
+  return logs.filter(isRecord).map((entry) => ({
+    level: typeof entry.level === 'string' ? entry.level : undefined,
+    message: typeof entry.message === 'string' ? entry.message : undefined,
+    details: entry.details,
+    capturedAt: typeof entry.capturedAt === 'number' ? entry.capturedAt : undefined,
+    pageUrl: typeof entry.pageUrl === 'string' ? entry.pageUrl : undefined,
+  }));
+}
+
 export default function App() {
   const [data, setData] = useState<ExtractedData | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -62,6 +83,7 @@ export default function App() {
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
+  const [extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
 
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== 'undefined'
@@ -155,6 +177,15 @@ export default function App() {
         if (status) {
           setExtensionStatus(status);
           console.info('[GMapLists] extension status', status);
+          return;
+        }
+
+        const logs = normalizeExtensionLogs(msg);
+        if (logs) {
+          setExtensionLogs((prev) => {
+            const next = logs.length === 1 ? prev.concat(logs) : logs;
+            return next.slice(-200);
+          });
           return;
         }
 
@@ -357,6 +388,7 @@ export default function App() {
               isLoading={isLoading}
               isReceiving={isReceiving}
               extensionStatus={extensionStatus}
+              extensionLogs={extensionLogs}
             />
           </div>
         )}

@@ -2,8 +2,14 @@
   const PORT_NAME = "gmaplists-app";
   const RUNTIME_DATA_TYPE = "GMAPLIST_EXTENSION_DATA";
   const RUNTIME_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
+  const RUNTIME_LOG_TYPE = "GMAPLIST_EXTENSION_LOG";
+  const RUNTIME_LOGS_TYPE = "GMAPLIST_EXTENSION_LOGS";
   const PUBLIC_DATA_TYPE = "GMAPLIST_DATA";
   const PUBLIC_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
+  const PUBLIC_LOG_TYPE = "GMAPLIST_EXTENSION_LOGS";
+
+  let reconnectAttempt = 0;
+  let port = null;
 
   function postStatus(status) {
     window.postMessage(
@@ -30,35 +36,98 @@
     );
   }
 
-  const port = chrome.runtime.connect({ name: PORT_NAME });
+  function postLogs(logs) {
+    window.postMessage(
+      {
+        type: PUBLIC_LOG_TYPE,
+        source: "gmaplists-extension",
+        logs,
+        capturedAt: Date.now(),
+      },
+      window.location.origin
+    );
+  }
 
-  postStatus({
-    status: "connected",
-    message: "Extension app bridge connected.",
-    capturedAt: Date.now(),
-  });
+  function requestLatest() {
+    if (!port) return;
 
-  port.onMessage.addListener((message) => {
-    if (message?.type === RUNTIME_DATA_TYPE) {
+    try {
+      port.postMessage({ type: "GMAPLIST_GET_LATEST_PAYLOAD" });
+      port.postMessage({ type: "GMAPLIST_GET_DEBUG_LOGS" });
+    } catch {
+      scheduleReconnect();
+    }
+  }
+
+  function scheduleReconnect() {
+    reconnectAttempt += 1;
+    const delay = Math.min(1000 * reconnectAttempt, 10000);
+
+    window.setTimeout(connect, delay);
+  }
+
+  function connect() {
+    try {
+      if (!chrome?.runtime?.id) {
+        postStatus({
+          status: "unavailable",
+          message: "Extension runtime unavailable. Reload the extension and this page.",
+          capturedAt: Date.now(),
+        });
+        return;
+      }
+
+      port = chrome.runtime.connect({ name: PORT_NAME });
+      reconnectAttempt = 0;
+    } catch (error) {
       postStatus({
-        status: "payload",
-        message: "Latest Maps payload delivered to app.",
-        diagnostics: message.payload?.diagnostics,
+        status: "error",
+        message: "Extension app bridge failed to connect.",
+        diagnostics: { error: error instanceof Error ? error.message : String(error) },
         capturedAt: Date.now(),
       });
-      postToApp(message.payload);
-    } else if (message?.type === RUNTIME_STATUS_TYPE) {
-      postStatus(message);
+      scheduleReconnect();
+      return;
     }
-  });
 
-  port.onDisconnect.addListener(() => {
     postStatus({
-      status: "disconnected",
-      message: "Extension app bridge disconnected.",
+      status: "connected",
+      message: "Extension app bridge connected.",
       capturedAt: Date.now(),
     });
-  });
 
-  port.postMessage({ type: "GMAPLIST_GET_LATEST_PAYLOAD" });
+    port.onMessage.addListener((message) => {
+      if (message?.type === RUNTIME_DATA_TYPE) {
+        postStatus({
+          status: "payload",
+          message: "Latest Maps payload delivered to app.",
+          diagnostics: message.payload?.diagnostics,
+          capturedAt: Date.now(),
+        });
+        postToApp(message.payload);
+      } else if (message?.type === RUNTIME_STATUS_TYPE) {
+        postStatus(message);
+      } else if (message?.type === RUNTIME_LOG_TYPE) {
+        postLogs([message.entry].filter(Boolean));
+      } else if (message?.type === RUNTIME_LOGS_TYPE) {
+        postLogs(Array.isArray(message.logs) ? message.logs : []);
+      }
+    });
+
+    port.onDisconnect.addListener(() => {
+      const runtimeError = chrome.runtime.lastError?.message;
+      port = null;
+      postStatus({
+        status: "reconnecting",
+        message: "Extension app bridge disconnected; reconnecting.",
+        diagnostics: runtimeError ? { error: runtimeError } : undefined,
+        capturedAt: Date.now(),
+      });
+      scheduleReconnect();
+    });
+
+    requestLatest();
+  }
+
+  connect();
 })();
