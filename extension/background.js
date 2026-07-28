@@ -8,8 +8,13 @@ const LATEST_PAYLOAD_KEY = "gmaplistsLatestPayload";
 const LAST_REDIRECT_KEY = "gmaplistsLastRedirect";
 const DEBUG_LOGS_KEY = "gmaplistsDebugLogs";
 const MAX_DEBUG_LOGS = 200;
+const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
+const ACTIVE_PAGE_DELAY_MS = 350;
+const ACTIVE_MAX_PAGES = 200;
 
 const appPorts = new Set();
+let backgroundExtractionPromise = null;
+let backgroundExtractionStartedFrom = "";
 
 function serializeDetails(details) {
   if (details == null) return undefined;
@@ -78,6 +83,200 @@ function broadcastToApp(payload) {
   broadcastToApps({ type: RUNTIME_DATA_TYPE, payload });
 }
 
+function stripAntiXssi(value) {
+  return value.replace(/^\)\]\}'\n?/, "");
+}
+
+function parseMapsResponseText(text) {
+  if (typeof text !== "string" || !text.trim()) return null;
+
+  try {
+    return JSON.parse(stripAntiXssi(text));
+  } catch {
+    return null;
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildListPageUrl(baseUrl, cursor) {
+  const pbMatch = baseUrl.match(/([?&]pb=)([^&]+)/);
+  if (!pbMatch) return baseUrl;
+
+  let pb = decodeURIComponent(pbMatch[2]);
+  pb = pb.replace(/!4i\d+/, "!4i500").replace(/!5B[^!]*/g, "");
+
+  if (cursor) {
+    const safeCursor = cursor.split("+").join("-").split("/").join("_").split("=").join("");
+    pb = pb.replace("!4i500", `!4i500!5B${safeCursor}`);
+  }
+
+  return baseUrl.replace(pbMatch[0], `${pbMatch[1]}${encodeURIComponent(pb)}`);
+}
+
+function summarizeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const pb = parsed.searchParams.get("pb") || "";
+    return {
+      origin: parsed.origin,
+      path: parsed.pathname,
+      hasPb: Boolean(pb),
+      pbLength: pb.length,
+      listId: extractListId(url),
+    };
+  } catch {
+    return { url: String(url).slice(0, 160) };
+  }
+}
+
+function extractValidPlaces(data) {
+  const raw = Array.isArray(data?.[0]?.[8]) ? data[0][8] : [];
+  return raw.filter((place) =>
+    Array.isArray(place) && typeof place[2] === "string" && place[2].length > 0
+  );
+}
+
+function getListTotal(data, currentCount) {
+  return typeof data?.[0]?.[12] === "number" && data[0][12] > 0 ? data[0][12] : currentCount;
+}
+
+function getNextCursor(data) {
+  const cursor = data?.[1];
+  if (typeof cursor === "string" && cursor.length > 8) return cursor;
+  if (Array.isArray(cursor) && typeof cursor[0] === "string" && cursor[0].length > 8) return cursor[0];
+  return null;
+}
+
+function signedIntToHex(value) {
+  try {
+    let numeric = BigInt(value);
+    if (numeric < 0n) numeric += 1n << 64n;
+    return `0x${numeric.toString(16)}`;
+  } catch {
+    return "";
+  }
+}
+
+function hexIdFromListPlace(place) {
+  const ids = place?.[1]?.[6];
+  if (!Array.isArray(ids) || ids.length < 2) return undefined;
+
+  const hi = signedIntToHex(ids[0]);
+  const lo = signedIntToHex(ids[1]);
+  return hi && lo ? `${hi}:${lo}` : undefined;
+}
+
+function buildFallbackMeta(place) {
+  return {
+    __lat: place?.[1]?.[5]?.[2] ?? null,
+    __lng: place?.[1]?.[5]?.[3] ?? null,
+    __address: place?.[1]?.[4] || place?.[1]?.[2] || null,
+    __hexId: hexIdFromListPlace(place) || null,
+  };
+}
+
+async function fetchMapsJson(url) {
+  const response = await fetch(url, { credentials: "include" });
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${text.slice(0, 120)}`);
+  }
+
+  const parsed = parseMapsResponseText(text);
+  if (!parsed) {
+    throw new Error(`Failed to parse Google Maps JSON response: ${text.slice(0, 120)}`);
+  }
+
+  return parsed;
+}
+
+async function fetchAllListPlaces(getlistUrl) {
+  const allPlaces = [];
+  let firstData = null;
+  let nextUrl = buildListPageUrl(getlistUrl, null);
+  let total = 0;
+  const seenCursors = new Set();
+
+  for (let page = 1; page <= ACTIVE_MAX_PAGES; page += 1) {
+    addDebugLog("info", "Background list fetch", { page, fetched: allPlaces.length });
+    const parsed = await fetchMapsJson(nextUrl);
+
+    if (page === 1) firstData = parsed;
+
+    const validPlaces = extractValidPlaces(parsed);
+    allPlaces.push(...validPlaces);
+    total = getListTotal(parsed, allPlaces.length);
+
+    const cursor = getNextCursor(parsed);
+    if (!cursor || allPlaces.length >= total || seenCursors.has(cursor)) break;
+
+    seenCursors.add(cursor);
+    nextUrl = buildListPageUrl(getlistUrl, cursor);
+    await delay(ACTIVE_PAGE_DELAY_MS);
+  }
+
+  if (firstData?.[0]) firstData[0][8] = allPlaces;
+  return { firstData, allPlaces, total };
+}
+
+function storeAndBroadcastPayload(payload) {
+  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: payload }, () => {
+    addDebugLog("info", "Stored captured payload", payload.diagnostics);
+    broadcastToApp(payload);
+  });
+}
+
+async function runBackgroundExtraction(getlistUrl) {
+  try {
+    addDebugLog("info", "Background extraction started", summarizeUrl(getlistUrl));
+    const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
+
+    if (!firstData || allPlaces.length === 0) {
+      addDebugLog("warn", "Background extraction found no places");
+      return;
+    }
+
+    const payload = {
+      type: "GMAPLIST_DATA",
+      source: "gmaplists-extension-background",
+      pageUrl: getlistUrl,
+      capturedAt: Date.now(),
+      data: firstData,
+      meta: allPlaces.map(buildFallbackMeta),
+      diagnostics: {
+        mode: "background-getlist",
+        fullExtraction: true,
+        needsGeminiSorting: true,
+        placeCount: allPlaces.length,
+        total,
+        metaCount: allPlaces.length,
+        source: "webRequest-observed-getlist",
+      },
+    };
+
+    storeAndBroadcastPayload(payload);
+  } catch (error) {
+    addDebugLog("error", "Background extraction failed", {
+      error: error instanceof Error ? error.message : String(error),
+      getlist: summarizeUrl(getlistUrl),
+    });
+  }
+}
+
+function scheduleBackgroundExtraction(getlistUrl) {
+  const normalizedUrl = buildListPageUrl(getlistUrl, null);
+  if (backgroundExtractionPromise && normalizedUrl === backgroundExtractionStartedFrom) return;
+
+  backgroundExtractionStartedFrom = normalizedUrl;
+  backgroundExtractionPromise = runBackgroundExtraction(normalizedUrl).finally(() => {
+    backgroundExtractionPromise = null;
+  });
+}
+
 chrome.webRequest.onBeforeRedirect.addListener(
   (details) => {
     const redirectUrl = details.redirectUrl || "";
@@ -100,6 +299,21 @@ chrome.webRequest.onBeforeRedirect.addListener(
   },
   {
     urls: ["*://maps.app.goo.gl/*"],
+  }
+);
+
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.initiator === `chrome-extension://${chrome.runtime.id}`) return;
+
+    addDebugLog("info", "Observed getlist request", summarizeUrl(details.url));
+    scheduleBackgroundExtraction(details.url);
+  },
+  {
+    urls: [
+      "*://www.google.com/maps/preview/entitylist/getlist*",
+      "*://maps.google.com/maps/preview/entitylist/getlist*",
+    ],
   }
 );
 

@@ -7,6 +7,7 @@
   const MAX_POLL_MS = 15000;
   const RESCAN_INTERVAL_MS = 3000;
   const MAX_RESCAN_MS = 120000;
+  const NO_GETLIST_DIAGNOSTIC_MS = 10000;
   const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
   const PLACE_ENDPOINT = "/maps/preview/place";
   const ACTIVE_PAGE_DELAY_MS = 350;
@@ -398,6 +399,24 @@
       .find((name) => typeof name === "string" && name.includes(LIST_ENDPOINT));
   }
 
+  function summarizeRelevantResources() {
+    return performance.getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .filter((name) =>
+        typeof name === "string" &&
+        /entitylist|getlist|preview|userlists|placelists|\/maps\//i.test(name)
+      )
+      .slice(-12)
+      .map((name) => {
+        try {
+          const url = new URL(name);
+          return `${url.origin}${url.pathname}${url.searchParams.has("pb") ? "?pb=..." : ""}`;
+        } catch {
+          return name.slice(0, 180);
+        }
+      });
+  }
+
   function getPlacePbTemplate() {
     if (lastPlacePbTemplate) return lastPlacePbTemplate;
 
@@ -627,9 +646,21 @@
 
   function startActiveExtractionPolling() {
     const startedAt = Date.now();
+    let loggedMissingGetlist = false;
+
     const poll = window.setInterval(() => {
       const url = findGetlistUrlFromPerformance();
       if (url) scheduleActiveExtraction(url);
+
+      if (!url && !loggedMissingGetlist && Date.now() - startedAt > NO_GETLIST_DIAGNOSTIC_MS) {
+        loggedMissingGetlist = true;
+        debugLog("warn", "No getlist request detected on Maps page", {
+          currentUrl: window.location.href,
+          listIdFromUrl: extractListIdFromUrl(window.location.href),
+          relevantResourceCount: summarizeRelevantResources().length,
+          relevantResources: summarizeRelevantResources(),
+        });
+      }
 
       if (url || Date.now() - startedAt > MAX_RESCAN_MS) {
         window.clearInterval(poll);
