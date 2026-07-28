@@ -1,5 +1,6 @@
 (() => {
   const INTERNAL_MESSAGE_TYPE = "GMAPLIST_EXTENSION_CAPTURE";
+  const INTERNAL_LOG_TYPE = "GMAPLIST_EXTENSION_LOG";
   const PUBLIC_MESSAGE_TYPE = "GMAPLIST_DATA";
   const CAPTURE_EVENT = "gmaplists:capture";
   const POLL_INTERVAL_MS = 500;
@@ -19,6 +20,30 @@
   let nativeFetch = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
   let lastPlacePbTemplate = "";
   const networkPayloads = [];
+
+  function serializeDetails(details) {
+    if (details == null) return undefined;
+
+    try {
+      return JSON.parse(JSON.stringify(details));
+    } catch {
+      return String(details);
+    }
+  }
+
+  function debugLog(level, message, details) {
+    const entry = {
+      level,
+      message,
+      details: serializeDetails(details),
+      capturedAt: Date.now(),
+      pageUrl: window.location.href,
+    };
+    const method = level === "error" ? "error" : level === "warn" ? "warn" : "info";
+
+    console[method]("[GMapLists]", message, entry.details || "");
+    window.postMessage({ type: INTERNAL_LOG_TYPE, entry }, window.location.origin);
+  }
 
   function stripAntiXssi(value) {
     return value.replace(/^\)\]\}'\n?/, "");
@@ -71,7 +96,7 @@
   function rememberNetworkPayload(url, text, source) {
     const parsed = parseMapsResponseText(text);
     if (!parsed) {
-      console.warn("[GMapLists] failed to parse Maps response", { source, url });
+      debugLog("warn", "Failed to parse Maps response", { source, url, sample: text.slice(0, 120) });
       return;
     }
 
@@ -85,7 +110,7 @@
 
     if (networkPayloads.length > 80) networkPayloads.shift();
 
-    console.info("[GMapLists] captured Maps response", {
+    debugLog("info", "Captured Maps response", {
       source,
       endpoint: url.includes(LIST_ENDPOINT) ? "entitylist/getlist" : "preview/place",
       networkPayloadCount: networkPayloads.length,
@@ -122,7 +147,10 @@
           response.clone().text().then((text) => {
             rememberNetworkPayload(url, text, "fetch");
           }).catch((error) => {
-            console.warn("[GMapLists] failed reading fetch response", { url, error });
+            debugLog("warn", "Failed reading fetch response", {
+              url,
+              error: error instanceof Error ? error.message : String(error),
+            });
           });
         }
 
@@ -153,9 +181,9 @@
             if (this.responseType && this.responseType !== "text") return;
             rememberNetworkPayload(this.__gmaplistsUrl, this.responseText, "xhr");
           } catch (error) {
-            console.warn("[GMapLists] failed reading XHR response", {
+            debugLog("warn", "Failed reading XHR response", {
               url: this.__gmaplistsUrl,
-              error,
+              error: error instanceof Error ? error.message : String(error),
             });
           }
         });
@@ -428,7 +456,7 @@
     const seenCursors = new Set();
 
     for (let page = 1; page <= ACTIVE_MAX_PAGES; page++) {
-      console.info("[GMapLists] active list fetch", { page, fetched: allPlaces.length });
+      debugLog("info", "Active list fetch", { page, fetched: allPlaces.length });
       const { parsed } = await fetchMapsJson(nextUrl);
 
       if (page === 1) firstData = parsed;
@@ -495,7 +523,7 @@
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn("[GMapLists] place enrichment failed", {
+      debugLog("warn", "Place enrichment failed", {
         name: place?.[2],
         hexId,
         errorMessage,
@@ -509,7 +537,7 @@
 
     for (let index = 0; index < places.length; index += ACTIVE_ENRICH_BATCH_SIZE) {
       const batch = places.slice(index, index + ACTIVE_ENRICH_BATCH_SIZE);
-      console.info("[GMapLists] active place enrichment", {
+      debugLog("info", "Active place enrichment", {
         done: index,
         total: places.length,
         hasTemplate: Boolean(pbTemplate),
@@ -558,10 +586,10 @@
 
   async function runActiveExtraction(getlistUrl) {
     try {
-      console.info("[GMapLists] active extraction started", { getlistUrl });
+      debugLog("info", "Active extraction started", { getlistUrl });
       const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
       if (!firstData || allPlaces.length === 0) {
-        console.warn("[GMapLists] active extraction found no places");
+        debugLog("warn", "Active extraction found no places");
         return;
       }
 
@@ -571,7 +599,7 @@
         : allPlaces.map((place) => ({ place, meta: buildFallbackMeta(place) }));
 
       if (!pbTemplate) {
-        console.info("[GMapLists] sent list-only payload; click a place in Maps once to enable rich enrichment");
+        debugLog("info", "Sent list-only payload; click a place once to enable rich enrichment");
       }
 
       const diagnostics = {
@@ -591,7 +619,9 @@
 
       dispatchCapture(buildActivePayload(firstData, enrichedPlaces, diagnostics));
     } catch (error) {
-      console.error("[GMapLists] active extraction failed", error);
+      debugLog("error", "Active extraction failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -711,7 +741,7 @@
     if (fingerprint === lastFingerprint) return false;
     lastFingerprint = fingerprint;
 
-    console.info("[GMapLists] capture summary", payload.diagnostics);
+    debugLog("info", "Capture summary", payload.diagnostics);
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, { detail: payload }));
     window.postMessage(payload, window.location.origin);
     window.postMessage({ type: INTERNAL_MESSAGE_TYPE, payload }, window.location.origin);
@@ -754,7 +784,7 @@
 
   patchFetch();
   patchXhr();
-  console.info("[GMapLists] Maps capture hooks installed");
+  debugLog("info", "Maps capture hooks installed");
 
   onReady(() => {
     startPolling();
