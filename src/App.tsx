@@ -315,15 +315,12 @@ export default function App() {
       {/* Top bar */}
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-[1600px] mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          {/* Left: logo + list info */}
+          {/* Left: logo + compact count */}
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-sm font-bold text-zinc-900 dark:text-white tracking-tight flex-shrink-0">GMapList</span>
             {data && (
               <>
                 <span className="text-zinc-300 dark:text-zinc-700">·</span>
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">
-                  {data.list_title}
-                </span>
                 <span className="text-xs text-zinc-400 dark:text-zinc-500 flex-shrink-0">
                   {places.length} places
                 </span>

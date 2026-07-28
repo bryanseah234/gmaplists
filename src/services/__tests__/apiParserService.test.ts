@@ -114,6 +114,26 @@ describe('apiParserService', () => {
     expect(result.places[1].primary_category).toBe("Drink");
   });
 
+  it('maps retail shop labels like Bag shop to Shop', () => {
+    const mockJson = [
+      [
+        null, null, null, null, "Retail List", null, null, null,
+        [
+          [null, null, "The Bag Creature", ""]
+        ]
+      ]
+    ];
+    const mockMeta = [
+      { __type: "Bag shop" }
+    ];
+
+    const raw = ")]}'\n" + JSON.stringify(mockJson);
+    const result = parseApiJson(raw, mockMeta);
+
+    expect(result.places[0].primary_category).toBe("Shop");
+    expect(result.places[0].detailed_category).toBe("Bag shop");
+  });
+
   it('persists coordinates, price, address, and heuristic detail fields', () => {
     const mockJson = [
       [

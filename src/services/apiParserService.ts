@@ -456,7 +456,9 @@ function typeLabelToPrimary(label: string): string | null {
     "juice bar": "Snack", "smoothie bar": "Snack",
     "donut shop": "Snack", "waffle shop": "Snack",
     "crepe shop": "Snack", "cake shop": "Snack",
+    "dessert stall": "Snack", "ice cream stall": "Snack",
     "toast restaurant": "Snack",
+    "food stall": "Food", "hawker stall": "Food",
     "bar": "Drink", "cocktail bar": "Drink", "wine bar": "Drink",
     "beer bar": "Drink", "sake bar": "Drink", "whisky bar": "Drink",
     "sports bar": "Drink", "pub": "Drink", "taproom": "Drink",
@@ -475,6 +477,7 @@ function typeLabelToPrimary(label: string): string | null {
     "souvenir shop": "Shop", "pharmacy": "Shop", "supermarket": "Shop",
     "department store": "Shop", "shopping mall": "Shop",
     "convenience store": "Shop", "florist": "Shop",
+    "bag shop": "Shop", "luggage store": "Shop", "leather goods store": "Shop",
   };
 
   if (LABEL_MAP[l]) return LABEL_MAP[l];
@@ -493,13 +496,9 @@ function typeLabelToPrimary(label: string): string | null {
       l.endsWith(" church") || l.endsWith(" mosque") || l.endsWith(" theatre") ||
       l.endsWith(" theater") || l.endsWith(" hotel") || l.endsWith(" hostel") ||
       l.endsWith(" resort") || l.endsWith(" spa")) return "See";
-  if (l.endsWith(" store") || l.endsWith(" shop") && (
-      l.includes("clothing") || l.includes("shoe") || l.includes("jewel") ||
-      l.includes("electronic") || l.includes("book") || l.includes("gift") ||
-      l.includes("souvenir") || l.includes("toy") || l.includes("sport"))) return "Shop";
+  if (l.endsWith(" store")) return "Shop";
   if (l.endsWith(" shop") || l.endsWith(" stall")) {
-    // default small shops: snack unless clearly retail
-    return "Snack";
+    return "Shop";
   }
   if (l.endsWith(" mall") || l.endsWith(" market")) return "Shop";
 
@@ -659,8 +658,6 @@ function buildUIConfig(places: Place[]): UIConfig {
     }],
   };
 }
-
-
 
 
 
