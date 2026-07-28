@@ -15,6 +15,9 @@
   let lastFingerprint = "";
   let activeExtractionPromise = null;
   let activeExtractionStartedFrom = "";
+  let pendingRichExtractionUrl = "";
+  let nativeFetch = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
+  let lastPlacePbTemplate = "";
   const networkPayloads = [];
 
   function stripAntiXssi(value) {
@@ -57,12 +60,22 @@
     return url.includes(LIST_ENDPOINT) || url.includes(PLACE_ENDPOINT);
   }
 
+  function getPbFromUrl(url) {
+    try {
+      return decodeURIComponent(new URL(url, window.location.href).searchParams.get("pb") || "");
+    } catch {
+      return "";
+    }
+  }
+
   function rememberNetworkPayload(url, text, source) {
     const parsed = parseMapsResponseText(text);
     if (!parsed) {
       console.warn("[GMapLists] failed to parse Maps response", { source, url });
       return;
     }
+
+    let capturedPlaceTemplate = false;
 
     networkPayloads.push({
       path: ["network", source, networkPayloads.length],
@@ -78,11 +91,19 @@
       networkPayloadCount: networkPayloads.length,
     });
 
+    if (url.includes(PLACE_ENDPOINT)) {
+      const pb = getPbFromUrl(url);
+      if (pb) {
+        lastPlacePbTemplate = pb;
+        capturedPlaceTemplate = true;
+      }
+    }
+
     if (url.includes(LIST_ENDPOINT)) {
       scheduleActiveExtraction(url);
     } else if (url.includes(PLACE_ENDPOINT)) {
       const getlistUrl = findGetlistUrlFromPerformance();
-      if (getlistUrl) scheduleActiveExtraction(getlistUrl);
+      if (getlistUrl) scheduleActiveExtraction(getlistUrl, capturedPlaceTemplate);
     }
 
     tryCapture();
@@ -91,6 +112,7 @@
   function patchFetch() {
     const originalFetch = window.fetch;
     if (typeof originalFetch !== "function" || originalFetch.__gmaplistsPatched) return;
+    nativeFetch = originalFetch.bind(window);
 
     const patchedFetch = function patchedFetch(input, init) {
       const url = normalizeUrl(input);
@@ -336,35 +358,15 @@
   }
 
   function getPlacePbTemplate() {
+    if (lastPlacePbTemplate) return lastPlacePbTemplate;
+
     const entries = performance.getEntriesByType("resource");
 
     for (const entry of entries) {
       if (!entry.name.includes(PLACE_ENDPOINT)) continue;
 
-      try {
-        const url = new URL(entry.name);
-        const pb = decodeURIComponent(url.searchParams.get("pb") || "");
-        if (pb) return pb;
-      } catch {
-        // Keep scanning other resource entries.
-      }
-    }
-
-    for (const entry of entries) {
-      if (!entry.name.includes("tbm=map")) continue;
-
-      try {
-        const url = new URL(entry.name);
-        const pb = decodeURIComponent(url.searchParams.get("pb") || "");
-        if (pb.length > 100) {
-          return pb.replace(
-            /(!72m2!1m1!1s0x[^!]+)+/g,
-            "!1s0x0000000000000000:0x0000000000000000"
-          );
-        }
-      } catch {
-        // Keep scanning other resource entries.
-      }
+      const pb = getPbFromUrl(entry.name);
+      if (pb) return pb;
     }
 
     return null;
@@ -395,11 +397,13 @@
   }
 
   async function fetchMapsJson(url) {
-    const response = await fetch(url, { credentials: "include" });
+    const response = await (nativeFetch || window.fetch.bind(window))(url, { credentials: "include" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     const parsed = parseMapsResponseText(text);
-    if (!parsed) throw new Error("Failed to parse Google Maps JSON response.");
+    if (!parsed) {
+      throw new Error(`Failed to parse Google Maps JSON response: ${text.slice(0, 120)}`);
+    }
     return { text, parsed };
   }
 
@@ -439,13 +443,17 @@
     };
   }
 
-  async function enrichPlace(place, pbTemplate) {
-    const fallbackMeta = cleanObject({
+  function buildFallbackMeta(place) {
+    return cleanObject({
       __lat: place?.[1]?.[5]?.[2],
       __lng: place?.[1]?.[5]?.[3],
       __address: place?.[1]?.[4] || place?.[1]?.[2],
       __hexId: hexIdFromListPlace(place),
     });
+  }
+
+  async function enrichPlace(place, pbTemplate) {
+    const fallbackMeta = buildFallbackMeta(place);
 
     if (!pbTemplate || !place?.[1]?.[5]) return { place, meta: fallbackMeta };
 
@@ -473,10 +481,11 @@
         }),
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.warn("[GMapLists] place enrichment failed", {
         name: place?.[2],
         hexId,
-        error,
+        errorMessage,
       });
       return { place, meta: fallbackMeta };
     }
@@ -516,15 +525,21 @@
     };
   }
 
-  function scheduleActiveExtraction(getlistUrl) {
+  function scheduleActiveExtraction(getlistUrl, rerunAfterCurrent = false) {
     if (!getlistUrl) return;
 
     const normalizedUrl = buildListPageUrl(getlistUrl, null);
-    if (activeExtractionPromise && normalizedUrl === activeExtractionStartedFrom) return;
+    if (activeExtractionPromise && normalizedUrl === activeExtractionStartedFrom) {
+      if (rerunAfterCurrent) pendingRichExtractionUrl = normalizedUrl;
+      return;
+    }
 
     activeExtractionStartedFrom = normalizedUrl;
     activeExtractionPromise = runActiveExtraction(normalizedUrl).finally(() => {
       activeExtractionPromise = null;
+      const pendingUrl = pendingRichExtractionUrl;
+      pendingRichExtractionUrl = "";
+      if (pendingUrl) scheduleActiveExtraction(pendingUrl);
     });
   }
 
@@ -538,10 +553,18 @@
       }
 
       const pbTemplate = getPlacePbTemplate();
-      const enrichedPlaces = await enrichPlaces(allPlaces, pbTemplate);
+      const enrichedPlaces = pbTemplate
+        ? await enrichPlaces(allPlaces, pbTemplate)
+        : allPlaces.map((place) => ({ place, meta: buildFallbackMeta(place) }));
+
+      if (!pbTemplate) {
+        console.info("[GMapLists] sent list-only payload; click a place in Maps once to enable rich enrichment");
+      }
+
       const diagnostics = {
         mode: "active-list",
         fullExtraction: true,
+        needsPlaceClick: !pbTemplate,
         pageUrl: window.location.href,
         placeCount: allPlaces.length,
         total,
