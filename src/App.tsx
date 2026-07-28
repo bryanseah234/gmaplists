@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
 import { ExtractedData, Place } from './types';
-import { KanbanView } from './components/Kanban/KanbanView';
+import { GroupedPlacesView } from './components/Places/GroupedPlacesView';
 import { InputSection } from './components/UI/InputSection';
 import { Sun, Moon, Monitor, RotateCcw } from 'lucide-react';
 
@@ -136,10 +136,7 @@ export default function App() {
     }
   }, []);
 
-  // On mount: if URL has a list slug, show the kanban immediately using stored overrides
-  // (no places data stored — just show the import screen with the slug context)
-  // The postMessage from bookmarklet will populate the kanban
-  // But if the user refreshes mid-session the data is gone — show import screen
+  // On mount: if URL has a list slug, switch to receiving mode for extension/bookmarklet data.
   useEffect(() => {
     const slug = window.location.pathname.replace(/^\//, '').trim();
     if (slug && slug.length > 10) {
@@ -333,7 +330,7 @@ export default function App() {
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
               <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
               <p className="text-zinc-800 dark:text-white font-semibold text-lg">Processing your list...</p>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm">Fetching categories, ratings &amp; prices</p>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm">Extracting places and Google Maps links</p>
             </div>
           </div>
         )}
@@ -345,9 +342,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Kanban or import screen */}
+        {/* Grouped links or import screen */}
         {data && places.length > 0 ? (
-          <KanbanView
+          <GroupedPlacesView
             data={data}
             places={places}
             onCategoryChange={handleCategoryChange}

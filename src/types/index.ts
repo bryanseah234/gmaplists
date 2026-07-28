@@ -1,6 +1,6 @@
 export interface Place {
   place_name: string;
-  /** Food | Snack | Drink | See | Shop | Uncategorised */
+  /** Unsorted | Food | Snack | Drink | See | Shop */
   primary_category: string;
   /** Google's own label e.g. "Ramen restaurant", "Cocktail bar" */
   detailed_category: string;
@@ -68,4 +68,3 @@ export const COLUMNS: { id: string; label: string; emoji: string }[] = [
   { id: "See",           label: "See",            emoji: "👁" },
   { id: "Shop",          label: "Shop",           emoji: "🛍" },
 ];
-

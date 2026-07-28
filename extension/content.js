@@ -223,6 +223,18 @@
     }
   }
 
+  function isGoogleMapsUrl(value) {
+    if (typeof value !== "string" || !/^https?:\/\//i.test(value.trim())) return false;
+
+    try {
+      const url = new URL(value);
+      const host = url.hostname.replace(/^www\./, "").toLowerCase();
+      return (host === "google.com" || host.endsWith(".google.com")) && url.pathname.includes("/maps");
+    } catch {
+      return false;
+    }
+  }
+
   function signedIntToHex(value) {
     try {
       let numeric = BigInt(value);
@@ -301,6 +313,7 @@
       __placeId: findFirst(root, (value) => typeof value === "string" && /^ChIJ/.test(value)),
       __phone: findFirst(root, (value) => typeof value === "string" && /\+\d{1,3}\s\d+/.test(value.replace(/\s+/g, " "))),
       __website: findFirst(root, isExternalWebsite),
+      __mapsUrl: isGoogleMapsUrl(root?.[42]) ? root[42] : findFirst(root, isGoogleMapsUrl),
       __lat: typeof root?.[9]?.[2] === "number" ? root[9][2] : coordinates.lat,
       __lng: typeof root?.[9]?.[3] === "number" ? root[9][3] : coordinates.lng,
       __address: typeof root?.[39] === "string" ? root[39] : typeof root?.[18] === "string" ? root[18] : undefined,
@@ -649,12 +662,16 @@
     const rawPlaces = data?.[0]?.[8] ?? [];
     const meta = rawPlaces.map((place, index) => {
       const hexId = hexIdFromListPlace(place);
+      const matchedDetailMeta = hexId
+        ? detailMetaByHexId.get(hexId)
+        : listPayload ? undefined : detailMeta[index];
+
       return cleanObject({
         __lat: place?.[1]?.[5]?.[2],
         __lng: place?.[1]?.[5]?.[3],
         __address: place?.[1]?.[4] || place?.[1]?.[2],
         __hexId: hexId,
-        ...(hexId ? detailMetaByHexId.get(hexId) : detailMeta[index]),
+        ...matchedDetailMeta,
       });
     });
 
