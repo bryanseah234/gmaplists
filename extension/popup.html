@@ -10,14 +10,20 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        width: 340px;
+        width: 420px;
         margin: 0;
-        background: #fafafa;
+        background: #f4f4f5;
         color: #18181b;
       }
 
       main {
+        display: grid;
+        gap: 12px;
         padding: 14px;
       }
 
@@ -25,7 +31,6 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 14px;
       }
 
       img {
@@ -34,26 +39,38 @@
         border-radius: 8px;
       }
 
-      h1 {
+      h1,
+      h2,
+      p {
         margin: 0;
+      }
+
+      h1 {
         font-size: 15px;
         line-height: 1.2;
       }
 
-      p {
-        margin: 3px 0 0;
+      header p,
+      .muted {
         color: #71717a;
         font-size: 12px;
         line-height: 1.45;
       }
 
-      form {
+      form,
+      .panel {
         display: grid;
         gap: 8px;
       }
 
+      .panel {
+        border: 1px solid #e4e4e7;
+        border-radius: 10px;
+        background: white;
+        padding: 10px;
+      }
+
       input {
-        box-sizing: border-box;
         width: 100%;
         height: 38px;
         border: 1px solid #d4d4d8;
@@ -70,7 +87,7 @@
       }
 
       button {
-        height: 38px;
+        height: 34px;
         border: 0;
         border-radius: 8px;
         background: #18181b;
@@ -80,31 +97,132 @@
         cursor: pointer;
       }
 
+      button.secondary {
+        border: 1px solid #d4d4d8;
+        background: white;
+        color: #3f3f46;
+      }
+
       button:disabled {
         cursor: not-allowed;
         opacity: 0.6;
       }
 
-      #status {
-        min-height: 16px;
-        margin-top: 10px;
+      .status-pill {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        min-height: 46px;
+        border: 1px solid #d4d4d8;
+        border-radius: 999px;
+        background: white;
+        padding: 9px 12px;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        margin-top: 4px;
+        border-radius: 999px;
+        background: #a1a1aa;
+        box-shadow: 0 0 0 5px rgba(161, 161, 170, 0.16);
+      }
+
+      .status-title {
+        color: #18181b;
         font-size: 12px;
-        line-height: 1.4;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+
+      .status-message,
+      .status-summary {
+        color: #71717a;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .status-summary {
+        margin-top: 2px;
+        font-weight: 700;
+      }
+
+      .status-pill.loading {
+        border-color: #bae6fd;
+        background: #f0f9ff;
+      }
+
+      .status-pill.loading .status-dot {
+        background: #0284c7;
+        box-shadow: 0 0 0 5px rgba(2, 132, 199, 0.16);
+        animation: pulse 1s infinite;
+      }
+
+      .status-pill.payload {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+      }
+
+      .status-pill.payload .status-dot {
+        background: #059669;
+        box-shadow: 0 0 0 5px rgba(5, 150, 105, 0.16);
+      }
+
+      .status-pill.error {
+        border-color: #fecaca;
+        background: #fef2f2;
+      }
+
+      .status-pill.error .status-dot {
+        background: #dc2626;
+        box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.16);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .logs {
+        max-height: 220px;
+        overflow: auto;
+        border-radius: 8px;
+        background: #09090b;
+        padding: 9px;
+        color: #d4d4d8;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 10.5px;
+        line-height: 1.45;
+      }
+
+      .log-entry {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .empty {
         color: #71717a;
       }
 
-      #status.error {
-        color: #dc2626;
-      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
 
-      #status.ok {
-        color: #047857;
-      }
-
-      .hint {
-        margin-top: 12px;
-        border-top: 1px solid #e4e4e7;
-        padding-top: 10px;
+        50% {
+          transform: scale(0.78);
+          opacity: 0.7;
+        }
       }
 
       @media (prefers-color-scheme: dark) {
@@ -113,13 +231,18 @@
           color: #fafafa;
         }
 
-        p,
-        #status {
+        header p,
+        .muted,
+        .status-message,
+        .status-summary {
           color: #a1a1aa;
         }
 
-        input {
-          border-color: #3f3f46;
+        .panel,
+        .status-pill,
+        input,
+        button.secondary {
+          border-color: #27272a;
           background: #18181b;
           color: #fafafa;
         }
@@ -133,8 +256,23 @@
           color: #18181b;
         }
 
-        .hint {
-          border-top-color: #27272a;
+        .status-title {
+          color: #fafafa;
+        }
+
+        .status-pill.loading {
+          border-color: #075985;
+          background: #082f49;
+        }
+
+        .status-pill.payload {
+          border-color: #166534;
+          background: #052e16;
+        }
+
+        .status-pill.error {
+          border-color: #991b1b;
+          background: #450a0a;
         }
       }
     </style>
@@ -145,26 +283,46 @@
         <img src="icons/icon-32x32.png" alt="" />
         <div>
           <h1>GMapLists</h1>
-          <p>Open one Maps list tab and send the capture to the app.</p>
+          <p>Open one Maps list tab and watch extraction progress here.</p>
         </div>
       </header>
 
-      <form id="open-form">
-        <input
-          id="maps-url"
-          type="url"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="Paste Google Maps list URL"
-        />
-        <button id="open-button" type="submit">Open Focused Maps Tab</button>
-      </form>
+      <section id="status-pill" class="status-pill">
+        <span class="status-dot"></span>
+        <div>
+          <div id="status-title" class="status-title">Idle</div>
+          <div id="status-message" class="status-message">Paste a Google Maps list URL to start.</div>
+          <div id="status-summary" class="status-summary"></div>
+        </div>
+      </section>
 
-      <div id="status">Keep the deployed app open while Maps loads.</div>
+      <section class="panel">
+        <form id="open-form">
+          <input
+            id="maps-url"
+            type="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Paste Google Maps list URL"
+          />
+          <button id="open-button" type="submit">Open Focused Maps Tab</button>
+        </form>
+        <p class="muted">Keep the deployed GMapList app open. This opens or focuses Maps so the extension knows exactly which list to import.</p>
+      </section>
 
-      <p class="hint">
-        Works with google.com/maps list links and maps.app.goo.gl short links.
-      </p>
+      <section class="panel">
+        <div class="row">
+          <h2 class="status-title">Extension Logs</h2>
+          <span id="log-count" class="muted">0 logs</span>
+        </div>
+        <div id="logs" class="logs">
+          <div class="empty">No logs yet.</div>
+        </div>
+        <div class="actions">
+          <button id="refresh-button" class="secondary" type="button">Refresh</button>
+          <button id="clear-button" class="secondary" type="button">Clear Logs</button>
+        </div>
+      </section>
     </main>
     <script src="popup.js"></script>
   </body>

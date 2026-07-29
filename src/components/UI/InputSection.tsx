@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import {
-  Check,
-  Copy,
   Download,
   ExternalLink,
   Loader2,
   Map as MapIcon,
   Radio,
   Send,
-  Terminal,
 } from 'lucide-react';
 
 interface InputSectionProps {
@@ -19,13 +16,6 @@ interface InputSectionProps {
     diagnostics?: unknown;
     capturedAt?: number;
   } | null;
-  extensionLogs?: Array<{
-    level?: string;
-    message?: string;
-    details?: unknown;
-    capturedAt?: number;
-    pageUrl?: string;
-  }>;
 }
 
 const EXTENSION_ZIP_URL = 'https://github.com/bryanseah234/gmaplists/archive/refs/heads/main.zip';
@@ -48,12 +38,6 @@ function getDiagnosticSummary(diagnostics: unknown): string | null {
     total != null && total !== placeCount ? `${total} total` : null,
     metaCount != null && metaCount !== placeCount ? `${metaCount} links` : null,
   ].filter(Boolean).join(' · ') || null;
-}
-
-function formatDebugLog(log: NonNullable<InputSectionProps['extensionLogs']>[number]): string {
-  const time = log.capturedAt ? new Date(log.capturedAt).toLocaleTimeString() : '';
-  const details = log.details ? ` ${JSON.stringify(log.details)}` : '';
-  return `[${time}] ${log.level ?? 'info'} ${log.message ?? 'Extension log'}${details}`;
 }
 
 function getStatusTone(status?: string) {
@@ -91,15 +75,12 @@ function getStatusTone(status?: string) {
 export const InputSection: React.FC<InputSectionProps> = ({
   isReceiving,
   extensionStatus,
-  extensionLogs = [],
 }) => {
   const [mapsUrl, setMapsUrl] = useState('');
   const [submittedUrl, setSubmittedUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
-  const [copiedLogs, setCopiedLogs] = useState(false);
 
   const statusTone = getStatusTone(extensionStatus?.status);
-  const recentLogs = extensionLogs.slice(-8).reverse();
   const isLoadingStatus = extensionStatus?.status === 'loading' || isReceiving;
 
   const openMapsUrl = (event: React.FormEvent<HTMLFormElement>) => {
@@ -128,14 +109,6 @@ export const InputSection: React.FC<InputSectionProps> = ({
     setUrlError(null);
     setSubmittedUrl(trimmed);
     window.postMessage({ type: APP_OPEN_MAPS_URL_TYPE, url: trimmed }, window.location.origin);
-  };
-
-  const copyDebugLogs = () => {
-    const text = extensionLogs.map(formatDebugLog).join('\n').trim();
-    navigator.clipboard.writeText(text || 'No extension debug logs yet.').then(() => {
-      setCopiedLogs(true);
-      setTimeout(() => setCopiedLogs(false), 2500);
-    });
   };
 
   return (
@@ -246,31 +219,11 @@ export const InputSection: React.FC<InputSectionProps> = ({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
-          <div className="flex min-w-0 items-center gap-2">
-            <Terminal size={16} className="text-zinc-400" />
-            <p className="text-sm font-semibold text-zinc-900 dark:text-white">Extension debug</p>
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">{extensionLogs.length} logs</span>
-          </div>
-          <button
-            onClick={copyDebugLogs}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500"
-          >
-            {copiedLogs ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy logs</>}
-          </button>
-        </div>
-        <div className="max-h-44 overflow-auto bg-zinc-950 px-4 py-3 font-mono text-[11px] leading-relaxed text-zinc-300">
-          {recentLogs.length > 0 ? (
-            recentLogs.map((log, index) => (
-              <div key={`${log.capturedAt ?? index}-${log.message ?? index}`} className="whitespace-pre-wrap break-words">
-                {formatDebugLog(log)}
-              </div>
-            ))
-          ) : (
-            <div className="text-zinc-500">No extension logs received yet. Reload the unpacked extension, then refresh this deployed app.</div>
-          )}
-        </div>
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="text-sm font-semibold text-zinc-950 dark:text-white">Need the logs?</p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          Click the GMapLists extension icon. The popup now shows the status pill, current progress, and the latest extension logs.
+        </p>
       </section>
     </div>
   );
