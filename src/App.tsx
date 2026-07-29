@@ -151,14 +151,14 @@ export default function App() {
     }
   }, []);
 
-  // Signal to the bookmarklet (window.opener) that we are ready to receive data
+  // Signal to extension/app bridges that this tab is ready to receive data.
   useEffect(() => {
     if (window.opener) {
       window.opener.postMessage({ type: 'GMAPLIST_READY' }, '*');
     }
   }, []);
 
-  // On mount: if URL has a list slug, switch to receiving mode for extension/bookmarklet data.
+  // On mount: if URL has a list slug, switch to receiving mode for extension data.
   useEffect(() => {
     const slug = window.location.pathname.replace(/^\//, '').trim();
     if (slug && slug.length > 10) {
@@ -167,7 +167,7 @@ export default function App() {
     }
   }, []);
 
-  // Listen for postMessage from bookmarklet or extension app bridge
+  // Listen for postMessage from the extension app bridge.
   useEffect(() => {
     setIsReceiving(true);
     const handler = (event: MessageEvent) => {
@@ -381,8 +381,6 @@ export default function App() {
         ) : (
           <div className="flex items-start justify-center min-h-[calc(100vh-80px)] pt-16">
             <InputSection
-              onExtract={handleExtract}
-              isLoading={isLoading}
               isReceiving={isReceiving}
               extensionStatus={extensionStatus}
               extensionLogs={extensionLogs}
