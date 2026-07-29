@@ -5,6 +5,7 @@ const RUNTIME_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
 const RUNTIME_LOG_TYPE = "GMAPLIST_EXTENSION_LOG";
 const RUNTIME_LOGS_TYPE = "GMAPLIST_EXTENSION_LOGS";
 const LATEST_PAYLOAD_KEY = "gmaplistsLatestPayload";
+const LATEST_STATUS_KEY = "gmaplistsLatestStatus";
 const LAST_REDIRECT_KEY = "gmaplistsLastRedirect";
 const DEBUG_LOGS_KEY = "gmaplistsDebugLogs";
 const MAX_DEBUG_LOGS = 200;
@@ -88,12 +89,16 @@ function broadcastToApp(payload) {
 }
 
 function broadcastStatus(status, message, diagnostics) {
-  broadcastToApps({
+  const payload = {
     type: RUNTIME_STATUS_TYPE,
     status,
     message,
-    diagnostics,
+    diagnostics: serializeDetails(diagnostics),
     capturedAt: Date.now(),
+  };
+
+  chrome.storage.local.set({ [LATEST_STATUS_KEY]: payload }, () => {
+    broadcastToApps(payload);
   });
 }
 
@@ -233,6 +238,18 @@ async function fetchAllListPlaces(getlistUrl) {
     const validPlaces = extractValidPlaces(parsed);
     allPlaces.push(...validPlaces);
     total = getListTotal(parsed, allPlaces.length);
+    broadcastStatus(
+      "loading",
+      total > allPlaces.length
+        ? `Imported ${allPlaces.length} of ${total} places...`
+        : `Imported ${allPlaces.length} places...`,
+      {
+        mode: "background-getlist",
+        page,
+        fetched: allPlaces.length,
+        total,
+      }
+    );
 
     const cursor = getNextCursor(parsed);
     if (!cursor || allPlaces.length >= total || seenCursors.has(cursor)) break;
@@ -392,12 +409,12 @@ chrome.runtime.onConnect.addListener((port) => {
 
     if (message?.type !== "GMAPLIST_GET_LATEST_PAYLOAD") return;
 
-    chrome.storage.local.get(LATEST_PAYLOAD_KEY, (stored) => {
+    chrome.storage.local.get([LATEST_PAYLOAD_KEY, LATEST_STATUS_KEY], (stored) => {
       const payload = stored[LATEST_PAYLOAD_KEY];
       if (payload) {
         port.postMessage({ type: RUNTIME_DATA_TYPE, payload });
       } else {
-        port.postMessage({
+        port.postMessage(stored[LATEST_STATUS_KEY] || {
           type: RUNTIME_STATUS_TYPE,
           status: "no_payload",
           message: "Extension connected; no Maps payload captured yet.",
@@ -409,6 +426,30 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GMAPLIST_GET_EXTENSION_STATE") {
+    chrome.storage.local.get(
+      [LATEST_STATUS_KEY, DEBUG_LOGS_KEY, LATEST_PAYLOAD_KEY, LAST_REDIRECT_KEY],
+      (stored) => {
+        sendResponse({
+          ok: true,
+          status: stored[LATEST_STATUS_KEY] || null,
+          logs: Array.isArray(stored[DEBUG_LOGS_KEY]) ? stored[DEBUG_LOGS_KEY] : [],
+          payload: stored[LATEST_PAYLOAD_KEY] || null,
+          redirect: stored[LAST_REDIRECT_KEY] || null,
+        });
+      }
+    );
+    return true;
+  }
+
+  if (message?.type === "GMAPLIST_CLEAR_DEBUG_LOGS") {
+    chrome.storage.local.set({ [DEBUG_LOGS_KEY]: [] }, () => {
+      addDebugLog("info", "Extension logs cleared");
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
   if (message?.type === "GMAPLIST_OPEN_MAPS_URL" && typeof message.url === "string") {
     try {
       const url = new URL(message.url);

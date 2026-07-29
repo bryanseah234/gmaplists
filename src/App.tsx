@@ -383,7 +383,6 @@ export default function App() {
             <InputSection
               isReceiving={isReceiving}
               extensionStatus={extensionStatus}
-              extensionLogs={extensionLogs}
             />
           </div>
         )}
