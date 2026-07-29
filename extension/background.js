@@ -11,10 +11,14 @@ const MAX_DEBUG_LOGS = 200;
 const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
 const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
+const RECENT_EXTRACTION_TTL_MS = 60000;
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
 let backgroundExtractionStartedFrom = "";
+let backgroundExtractionStartedKey = "";
+let lastCompletedExtractionKey = "";
+let lastCompletedExtractionAt = 0;
 
 function serializeDetails(details) {
   if (details == null) return undefined;
@@ -83,6 +87,16 @@ function broadcastToApp(payload) {
   broadcastToApps({ type: RUNTIME_DATA_TYPE, payload });
 }
 
+function broadcastStatus(status, message, diagnostics) {
+  broadcastToApps({
+    type: RUNTIME_STATUS_TYPE,
+    status,
+    message,
+    diagnostics,
+    capturedAt: Date.now(),
+  });
+}
+
 function stripAntiXssi(value) {
   return value.replace(/^\)\]\}'\n?/, "");
 }
@@ -130,6 +144,10 @@ function summarizeUrl(url) {
   } catch {
     return { url: String(url).slice(0, 160) };
   }
+}
+
+function getExtractionKey(url) {
+  return extractListId(url) || buildListPageUrl(url, null);
 }
 
 function extractValidPlaces(data) {
@@ -203,6 +221,11 @@ async function fetchAllListPlaces(getlistUrl) {
 
   for (let page = 1; page <= ACTIVE_MAX_PAGES; page += 1) {
     addDebugLog("info", "Background list fetch", { page, fetched: allPlaces.length });
+    broadcastStatus("loading", `Fetching Google Maps list page ${page}...`, {
+      mode: "background-getlist",
+      page,
+      fetched: allPlaces.length,
+    });
     const parsed = await fetchMapsJson(nextUrl);
 
     if (page === 1) firstData = parsed;
@@ -233,10 +256,12 @@ function storeAndBroadcastPayload(payload) {
 async function runBackgroundExtraction(getlistUrl) {
   try {
     addDebugLog("info", "Background extraction started", summarizeUrl(getlistUrl));
+    broadcastStatus("loading", "Google Maps list detected. Extracting places...", summarizeUrl(getlistUrl));
     const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
 
     if (!firstData || allPlaces.length === 0) {
       addDebugLog("warn", "Background extraction found no places");
+      broadcastStatus("no_places", "Google Maps list detected, but no places were returned.");
       return;
     }
 
@@ -259,19 +284,44 @@ async function runBackgroundExtraction(getlistUrl) {
     };
 
     storeAndBroadcastPayload(payload);
+    lastCompletedExtractionKey = getExtractionKey(getlistUrl);
+    lastCompletedExtractionAt = Date.now();
+    broadcastStatus("payload", `Extracted ${allPlaces.length} Google Maps places.`, payload.diagnostics);
   } catch (error) {
     addDebugLog("error", "Background extraction failed", {
       error: error instanceof Error ? error.message : String(error),
       getlist: summarizeUrl(getlistUrl),
+    });
+    broadcastStatus("error", "Google Maps extraction failed.", {
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
 function scheduleBackgroundExtraction(getlistUrl) {
   const normalizedUrl = buildListPageUrl(getlistUrl, null);
-  if (backgroundExtractionPromise && normalizedUrl === backgroundExtractionStartedFrom) return;
+  const extractionKey = getExtractionKey(normalizedUrl);
+  const recentlyCompleted = (
+    extractionKey === lastCompletedExtractionKey &&
+    Date.now() - lastCompletedExtractionAt < RECENT_EXTRACTION_TTL_MS
+  );
+
+  if (recentlyCompleted) {
+    addDebugLog("info", "Skipping recently extracted list", {
+      extractionKey,
+      ttlMs: RECENT_EXTRACTION_TTL_MS,
+    });
+    broadcastStatus("payload", "This list was already extracted recently.", {
+      extractionKey,
+      ttlMs: RECENT_EXTRACTION_TTL_MS,
+    });
+    return;
+  }
+
+  if (backgroundExtractionPromise && extractionKey === backgroundExtractionStartedKey) return;
 
   backgroundExtractionStartedFrom = normalizedUrl;
+  backgroundExtractionStartedKey = extractionKey;
   backgroundExtractionPromise = runBackgroundExtraction(normalizedUrl).finally(() => {
     backgroundExtractionPromise = null;
   });
@@ -307,6 +357,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (details.initiator === `chrome-extension://${chrome.runtime.id}`) return;
 
     addDebugLog("info", "Observed getlist request", summarizeUrl(details.url));
+    broadcastStatus("loading", "Google Maps list request observed. Starting extraction...", summarizeUrl(details.url));
     scheduleBackgroundExtraction(details.url);
   },
   {
@@ -358,6 +409,34 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GMAPLIST_OPEN_MAPS_URL" && typeof message.url === "string") {
+    try {
+      const url = new URL(message.url);
+      const host = url.hostname.replace(/^www\./, "").toLowerCase();
+      const allowed = (
+        host === "google.com" ||
+        host.endsWith(".google.com") ||
+        host === "maps.app.goo.gl"
+      );
+
+      if (!allowed) {
+        sendResponse({ ok: false, error: "Paste a Google Maps or maps.app.goo.gl URL." });
+        return false;
+      }
+
+      chrome.tabs.create({ url: url.href, active: true }, (tab) => {
+        if (tab?.windowId != null) chrome.windows.update(tab.windowId, { focused: true });
+        addDebugLog("info", "Opened Maps tab from extension popup", { url: url.href });
+        broadcastStatus("loading", "Opened Google Maps list tab. Waiting for list request...", { url: url.href });
+        sendResponse({ ok: true });
+      });
+      return true;
+    } catch {
+      sendResponse({ ok: false, error: "Paste a valid Google Maps URL." });
+      return false;
+    }
+  }
+
   if (message?.type === RUNTIME_LOG_TYPE && message.entry) {
     addDebugLog(
       message.entry.level || "info",

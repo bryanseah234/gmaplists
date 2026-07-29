@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Map as MapIcon, Copy, Check, Radio, Terminal } from 'lucide-react';
-import { SCROLL_BOOKMARKLET_CODE } from '../../config/constants';
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  Loader2,
+  Map as MapIcon,
+  Radio,
+  Send,
+  Terminal,
+} from 'lucide-react';
 
 interface InputSectionProps {
-  onExtract: (input: string) => Promise<void>;
-  isLoading: boolean;
   isReceiving: boolean;
   extensionStatus?: {
     status: string;
@@ -21,22 +28,25 @@ interface InputSectionProps {
   }>;
 }
 
+const EXTENSION_ZIP_URL = 'https://github.com/bryanseah234/gmaplists/archive/refs/heads/main.zip';
+const APP_OPEN_MAPS_URL_TYPE = 'GMAPLIST_APP_OPEN_MAPS_URL';
+
 function getDiagnosticSummary(diagnostics: unknown): string | null {
   if (!diagnostics || typeof diagnostics !== 'object' || Array.isArray(diagnostics)) return null;
 
   const values = diagnostics as Record<string, unknown>;
   const placeCount = typeof values.placeCount === 'number' ? values.placeCount : undefined;
-  const networkPayloadCount = typeof values.networkPayloadCount === 'number' ? values.networkPayloadCount : undefined;
-  const detailPayloadCount = typeof values.detailPayloadCount === 'number' ? values.detailPayloadCount : undefined;
-  const metaWithType = typeof values.metaWithType === 'number' ? values.metaWithType : undefined;
-  const metaWithGcid = typeof values.metaWithGcid === 'number' ? values.metaWithGcid : undefined;
+  const total = typeof values.total === 'number' ? values.total : undefined;
+  const page = typeof values.page === 'number' ? values.page : undefined;
+  const fetched = typeof values.fetched === 'number' ? values.fetched : undefined;
+  const metaCount = typeof values.metaCount === 'number' ? values.metaCount : undefined;
 
   return [
+    page != null ? `page ${page}` : null,
+    fetched != null ? `${fetched} fetched` : null,
     placeCount != null ? `${placeCount} places` : null,
-    networkPayloadCount != null ? `${networkPayloadCount} network payloads` : null,
-    detailPayloadCount != null ? `${detailPayloadCount} detail payloads` : null,
-    metaWithType != null ? `${metaWithType} types` : null,
-    metaWithGcid != null ? `${metaWithGcid} gcids` : null,
+    total != null && total !== placeCount ? `${total} total` : null,
+    metaCount != null && metaCount !== placeCount ? `${metaCount} links` : null,
   ].filter(Boolean).join(' · ') || null;
 }
 
@@ -46,19 +56,78 @@ function formatDebugLog(log: NonNullable<InputSectionProps['extensionLogs']>[num
   return `[${time}] ${log.level ?? 'info'} ${log.message ?? 'Extension log'}${details}`;
 }
 
-export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensionStatus, extensionLogs = [] }) => {
-  const [copied, setCopied] = useState(false);
+function getStatusTone(status?: string) {
+  if (status === 'payload') {
+    return {
+      shell: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30',
+      icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+      text: 'text-emerald-800 dark:text-emerald-200',
+    };
+  }
+
+  if (status === 'loading' || status === 'connected' || status === 'reconnecting') {
+    return {
+      shell: 'border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/30',
+      icon: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300',
+      text: 'text-sky-800 dark:text-sky-200',
+    };
+  }
+
+  if (status === 'error') {
+    return {
+      shell: 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30',
+      icon: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300',
+      text: 'text-red-800 dark:text-red-200',
+    };
+  }
+
+  return {
+    shell: 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900',
+    icon: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300',
+    text: 'text-zinc-700 dark:text-zinc-300',
+  };
+}
+
+export const InputSection: React.FC<InputSectionProps> = ({
+  isReceiving,
+  extensionStatus,
+  extensionLogs = [],
+}) => {
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [submittedUrl, setSubmittedUrl] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [copiedLogs, setCopiedLogs] = useState(false);
 
-  const bookmarkletHref = `javascript:${encodeURIComponent(
-    SCROLL_BOOKMARKLET_CODE.replace('__GMAPLIST_APP_URL__', window.location.origin)
-  )}`;
+  const statusTone = getStatusTone(extensionStatus?.status);
+  const recentLogs = extensionLogs.slice(-8).reverse();
+  const isLoadingStatus = extensionStatus?.status === 'loading' || isReceiving;
 
-  const copyBookmarklet = () => {
-    navigator.clipboard.writeText(bookmarkletHref).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
+  const openMapsUrl = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = mapsUrl.trim();
+
+    if (!trimmed) {
+      setUrlError('Paste a Google Maps list URL first.');
+      return;
+    }
+
+    try {
+      const url = new URL(trimmed);
+      const host = url.hostname.replace(/^www\./, '').toLowerCase();
+      const isMapsUrl = host === 'google.com' || host.endsWith('.google.com') || host === 'maps.app.goo.gl';
+
+      if (!isMapsUrl) {
+        setUrlError('Paste a Google Maps or maps.app.goo.gl URL.');
+        return;
+      }
+    } catch {
+      setUrlError('Paste a valid URL.');
+      return;
+    }
+
+    setUrlError(null);
+    setSubmittedUrl(trimmed);
+    window.postMessage({ type: APP_OPEN_MAPS_URL_TYPE, url: trimmed }, window.location.origin);
   };
 
   const copyDebugLogs = () => {
@@ -69,64 +138,129 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
     });
   };
 
-  const recentLogs = extensionLogs.slice(-8).reverse();
-
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-10">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-white dark:bg-white dark:text-zinc-950">
+                <MapIcon size={22} strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">GMapList</h1>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                  Extract a Google Maps list, sort places into practical groups, then copy phone-ready links for mobile tagging.
+                </p>
+              </div>
+            </div>
 
-      {/* Hero */}
-      <div className="flex flex-col items-center text-center gap-3">
-        <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-600 text-white shadow-lg">
-          <MapIcon size={32} strokeWidth={2} />
-        </div>
-        <h1 className="text-4xl font-bold text-zinc-900 dark:text-white tracking-tight">
-          GMapList
-        </h1>
-        <p className="text-base text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
-          Extract Google Maps saved places, group them, and copy phone-ready links for mobile tagging.
-        </p>
-      </div>
+            <form onSubmit={openMapsUrl} className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <label className="sr-only" htmlFor="maps-url">Google Maps list URL</label>
+              <input
+                id="maps-url"
+                value={mapsUrl}
+                onChange={(event) => setMapsUrl(event.currentTarget.value)}
+                placeholder="Paste Google Maps list link or maps.app.goo.gl short link"
+                className="h-11 min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+              />
+              <button
+                type="submit"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+              >
+                <Send size={15} />
+                Open Maps Tab
+              </button>
+            </form>
 
-      <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0 ${
-            extensionStatus?.status === 'payload'
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-              : extensionStatus?.status === 'connected'
-                ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300'
-          }`}>
-            <Radio size={17} className={isReceiving ? 'animate-pulse' : ''} />
+            {urlError ? (
+              <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-300">{urlError}</p>
+            ) : submittedUrl ? (
+              <p className="mt-2 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                Requested tab: {submittedUrl}
+              </p>
+            ) : null}
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-              Extension capture
-            </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              {extensionStatus?.message ?? 'Open this app and Google Maps with the unpacked extension enabled.'}
-            </p>
+
+          <div className={`w-full rounded-lg border px-4 py-3 lg:w-[340px] ${statusTone.shell}`}>
+            <div className="flex items-start gap-3">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${statusTone.icon}`}>
+                {isLoadingStatus ? <Loader2 size={17} className="animate-spin" /> : <Radio size={17} />}
+              </div>
+              <div className="min-w-0">
+                <p className={`text-sm font-semibold ${statusTone.text}`}>
+                  {extensionStatus?.status === 'payload' ? 'Capture ready' : 'Extension capture'}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {extensionStatus?.message ?? 'Install and reload the unpacked extension, then paste a Maps list link above.'}
+                </p>
+                <p className="mt-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  {getDiagnosticSummary(extensionStatus?.diagnostics) ?? (isLoadingStatus ? 'Waiting for Maps data...' : 'No capture yet')}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:text-right">
-          {getDiagnosticSummary(extensionStatus?.diagnostics) ?? (isReceiving ? 'Listening...' : 'No capture yet')}
-        </div>
-      </div>
+      </section>
 
-      <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="flex items-center gap-2 min-w-0">
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-3 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">1</div>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Download extension ZIP</h2>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Download the GitHub ZIP, unzip it, then use Chrome's Load unpacked button on the extension folder.
+          </p>
+          <a
+            href={EXTENSION_ZIP_URL}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-200 dark:hover:border-zinc-500"
+          >
+            <Download size={14} />
+            Download ZIP
+          </a>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-3 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">2</div>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Load unpacked</h2>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Open chrome://extensions, enable Developer mode, click Load unpacked, then choose the unzipped extension directory.
+          </p>
+          <a
+            href="chrome://extensions"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-200 dark:hover:border-zinc-500"
+          >
+            <ExternalLink size={14} />
+            chrome://extensions
+          </a>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-3 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-100 text-xs font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">3</div>
+          <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Open one list tab</h2>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Paste the list link here or in the extension popup. The extension opens a focused Maps tab and sends the captured list back here.
+          </p>
+          <p className="mt-4 rounded-lg bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+            Keep this deployed app tab open while Maps loads.
+          </p>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+          <div className="flex min-w-0 items-center gap-2">
             <Terminal size={16} className="text-zinc-400" />
             <p className="text-sm font-semibold text-zinc-900 dark:text-white">Extension debug</p>
             <span className="text-xs text-zinc-400 dark:text-zinc-500">{extensionLogs.length} logs</span>
           </div>
           <button
             onClick={copyDebugLogs}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500"
           >
             {copiedLogs ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy logs</>}
           </button>
         </div>
-        <div className="max-h-48 overflow-auto bg-zinc-950 px-4 py-3 font-mono text-[11px] leading-relaxed text-zinc-300">
+        <div className="max-h-44 overflow-auto bg-zinc-950 px-4 py-3 font-mono text-[11px] leading-relaxed text-zinc-300">
           {recentLogs.length > 0 ? (
             recentLogs.map((log, index) => (
               <div key={`${log.capturedAt ?? index}-${log.message ?? index}`} className="whitespace-pre-wrap break-words">
@@ -134,85 +268,10 @@ export const InputSection: React.FC<InputSectionProps> = ({ isReceiving, extensi
               </div>
             ))
           ) : (
-            <div className="text-zinc-500">No extension logs received yet. Reload the extension, then reload this page.</div>
+            <div className="text-zinc-500">No extension logs received yet. Reload the unpacked extension, then refresh this deployed app.</div>
           )}
         </div>
-      </div>
-
-      {/* 3 step cards side by side */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        {/* Step 1 */}
-        <div className="flex flex-col items-center text-center gap-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm px-6 py-6">
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-brand-600 text-white font-bold text-sm flex-shrink-0">
-            1
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-semibold text-zinc-900 dark:text-white text-sm">Install the bookmarklet</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Copy the URL below. In Chrome open{' '}
-              <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">Ctrl+Shift+O</span>,
-              click <span className="font-medium text-zinc-700 dark:text-zinc-300">⋮ → Add new bookmark</span>, paste as the URL.
-            </p>
-          </div>
-          <button
-            onClick={copyBookmarklet}
-            className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 active:scale-[0.98] transition-all"
-          >
-            {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Bookmarklet URL</>}
-          </button>
-        </div>
-
-        {/* Step 2 */}
-        <div className="flex flex-col items-center text-center gap-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm px-6 py-6">
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-brand-600 text-white font-bold text-sm flex-shrink-0">
-            2
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-semibold text-zinc-900 dark:text-white text-sm">Open your list on Google Maps</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Go to <span className="font-medium text-zinc-700 dark:text-zinc-300">Saved → your list</span>.
-              Wait for it to load, then{' '}
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">click any one place</span> on the map for full ratings, prices and categories.
-            </p>
-          </div>
-          <div className="mt-auto w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700">
-            <span className="text-amber-500 text-sm">⚠️</span>
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Click one place first for full details</span>
-          </div>
-        </div>
-
-        {/* Step 3 */}
-        <div className={`flex flex-col items-center text-center gap-4 rounded-2xl border shadow-sm px-6 py-6 transition-colors duration-500 ${
-          isReceiving
-            ? 'bg-brand-50 dark:bg-brand-950/20 border-brand-300 dark:border-brand-700'
-            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
-        }`}>
-          <div className={`flex items-center justify-center w-9 h-9 rounded-full font-bold text-sm flex-shrink-0 transition-colors ${
-            isReceiving ? 'bg-brand-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300'
-          }`}>
-            3
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-semibold text-zinc-900 dark:text-white text-sm">Run the bookmarklet</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Click <span className="font-medium text-zinc-700 dark:text-zinc-300">GMapList</span> in your bookmarks bar.
-              Your grouped link workspace appears here automatically.
-            </p>
-          </div>
-          <div className="mt-auto">
-            {isReceiving ? (
-              <div className="flex items-center justify-center gap-2 text-xs text-brand-600 dark:text-brand-400 font-medium">
-                <Radio size={13} className="animate-pulse" />
-                Listening for bookmarklet data…
-              </div>
-            ) : (
-              <div className="text-xs text-zinc-400 dark:text-zinc-500">Waiting…</div>
-            )}
-          </div>
-        </div>
-
-      </div>
+      </section>
     </div>
   );
 };

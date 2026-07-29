@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Check, Copy, ExternalLink, Link as LinkIcon, Search, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, ExternalLink, Link as LinkIcon, Search, Sparkles } from "lucide-react";
 import { COLUMNS, ExtractedData, Place } from "../../types";
 
 interface GroupedPlacesViewProps {
@@ -97,6 +97,7 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const filteredPlaces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -131,6 +132,10 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
   const copyPrompt = () => copyText("prompt", buildGeminiPrompt(data, places));
   const linkedCount = places.filter((place) => Boolean(place.google_maps_link)).length;
   const unsortedCount = grouped.Unsorted?.length ?? 0;
+  const hasCollapsedGroups = CATEGORY_ORDER.some((category) => collapsed[category]);
+  const setAllCollapsed = (value: boolean) => {
+    setCollapsed(Object.fromEntries(CATEGORY_ORDER.map((category) => [category, value])));
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -171,14 +176,23 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
-          <Search size={16} className="text-zinc-400" />
-          <input
-            value={query}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
-            placeholder="Search places, labels, addresses"
-            className="w-full bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white"
-          />
+        <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <Search size={16} className="text-zinc-400" />
+            <input
+              value={query}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
+              placeholder="Search places, labels, addresses"
+              className="w-full bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-white"
+            />
+          </div>
+          <button
+            onClick={() => setAllCollapsed(!hasCollapsedGroups)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 transition hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white"
+          >
+            {hasCollapsedGroups ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+            {hasCollapsedGroups ? "Expand all" : "Collapse all"}
+          </button>
         </div>
       </section>
 
@@ -193,13 +207,20 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
               className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
             >
               <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                <div className="flex min-w-0 items-center gap-2">
+                <button
+                  onClick={() => setCollapsed((current) => ({ ...current, [category]: !current[category] }))}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  {collapsed[category]
+                    ? <ChevronRight size={15} className="shrink-0 text-zinc-400" />
+                    : <ChevronDown size={15} className="shrink-0 text-zinc-400" />
+                  }
                   <span className="text-base leading-none">{column?.emoji}</span>
                   <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{column?.label ?? category}</h2>
                   <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                     {items.length}
                   </span>
-                </div>
+                </button>
 
                 <button
                   disabled={items.length === 0}
@@ -211,17 +232,24 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
                 </button>
               </div>
 
-              {items.length === 0 ? (
+              {collapsed[category] ? (
+                <div className="px-4 py-3 text-xs text-zinc-400 dark:text-zinc-500">
+                  {items.length} place{items.length !== 1 ? "s" : ""} hidden.
+                </div>
+              ) : items.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   No places.
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {items.map((place) => {
                     const mapsLink = fallbackMapsLink(place);
 
                     return (
-                      <div key={place.place_name} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_160px_auto] md:items-center">
+                      <div
+                        key={place.place_name}
+                        className="flex min-h-[150px] flex-col justify-between rounded-lg border border-zinc-200 bg-zinc-50 p-3 transition hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-600"
+                      >
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-start gap-2">
                             <a
@@ -242,35 +270,37 @@ export const GroupedPlacesView: React.FC<GroupedPlacesViewProps> = ({
                               <ExternalLink size={14} />
                             </a>
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                             <span>{place.detailed_category || "Unknown"}</span>
-                            {place.address && <span className="truncate">{place.address}</span>}
+                            {place.address && <span className="line-clamp-2">{place.address}</span>}
                             {place.price_level && <span>{place.price_level}</span>}
                             {place.star_rating > 0 && <span>{place.star_rating} stars</span>}
                           </div>
                         </div>
 
-                        <select
-                          value={CATEGORY_LABELS.has(place.primary_category) ? place.primary_category : "Unsorted"}
-                          onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-                            onCategoryChange(place.place_name, event.target.value)
-                          }
-                          className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-800 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                        >
-                          {COLUMNS.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                          <select
+                            value={CATEGORY_LABELS.has(place.primary_category) ? place.primary_category : "Unsorted"}
+                            onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                              onCategoryChange(place.place_name, event.target.value)
+                            }
+                            className="h-9 min-w-0 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-800 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                          >
+                            {COLUMNS.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
 
-                        <button
-                          onClick={() => copyText(place.place_name, formatPlaceLine(place))}
-                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white"
-                        >
-                          {copiedKey === place.place_name ? <Check size={13} /> : <LinkIcon size={13} />}
-                          {copiedKey === place.place_name ? "Copied" : "Link"}
-                        </button>
+                          <button
+                            onClick={() => copyText(place.place_name, formatPlaceLine(place))}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white"
+                          >
+                            {copiedKey === place.place_name ? <Check size={13} /> : <LinkIcon size={13} />}
+                            {copiedKey === place.place_name ? "Copied" : "Link"}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

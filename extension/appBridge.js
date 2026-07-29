@@ -7,6 +7,7 @@
   const PUBLIC_DATA_TYPE = "GMAPLIST_DATA";
   const PUBLIC_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
   const PUBLIC_LOG_TYPE = "GMAPLIST_EXTENSION_LOGS";
+  const APP_OPEN_MAPS_URL_TYPE = "GMAPLIST_APP_OPEN_MAPS_URL";
 
   let reconnectAttempt = 0;
   let port = null;
@@ -57,6 +58,21 @@
     } catch {
       scheduleReconnect();
     }
+  }
+
+  function forwardOpenMapsRequest(url) {
+    chrome.runtime.sendMessage({ type: "GMAPLIST_OPEN_MAPS_URL", url }, (response) => {
+      const error = chrome.runtime.lastError?.message || response?.error;
+
+      postStatus({
+        status: response?.ok ? "loading" : "error",
+        message: response?.ok
+          ? "Opened Google Maps tab. Waiting for list request..."
+          : error || "Extension could not open that Maps URL.",
+        diagnostics: { url, error },
+        capturedAt: Date.now(),
+      });
+    });
   }
 
   function scheduleReconnect() {
@@ -128,6 +144,13 @@
 
     requestLatest();
   }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== window.location.origin) return;
+    if (event.data?.type !== APP_OPEN_MAPS_URL_TYPE || typeof event.data.url !== "string") return;
+
+    forwardOpenMapsRequest(event.data.url);
+  });
 
   connect();
 })();
