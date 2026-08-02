@@ -88,6 +88,10 @@ function broadcastToApp(payload) {
   broadcastToApps({ type: RUNTIME_DATA_TYPE, payload });
 }
 
+function clearLatestPayload() {
+  chrome.storage.local.remove(LATEST_PAYLOAD_KEY);
+}
+
 function broadcastStatus(status, message, diagnostics) {
   const payload = {
     type: RUNTIME_STATUS_TYPE,
@@ -272,6 +276,7 @@ function storeAndBroadcastPayload(payload) {
 
 async function runBackgroundExtraction(getlistUrl) {
   try {
+    clearLatestPayload();
     addDebugLog("info", "Background extraction started", summarizeUrl(getlistUrl));
     broadcastStatus("loading", "Google Maps list detected. Extracting places...", summarizeUrl(getlistUrl));
     const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
@@ -467,6 +472,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
       chrome.tabs.create({ url: url.href, active: true }, (tab) => {
         if (tab?.windowId != null) chrome.windows.update(tab.windowId, { focused: true });
+        clearLatestPayload();
         addDebugLog("info", "Opened Maps tab from extension popup", { url: url.href });
         broadcastStatus("loading", "Opened Google Maps list tab. Waiting for list request...", { url: url.href });
         sendResponse({ ok: true });
