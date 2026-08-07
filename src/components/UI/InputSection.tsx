@@ -18,7 +18,7 @@ interface InputSectionProps {
   } | null;
 }
 
-const EXTENSION_ZIP_URL = 'https://github.com/bryanseah234/gmaplists/archive/refs/heads/main.zip';
+const EXTENSION_ZIP_URL = 'https://github.com/hongyime/gmaplists/archive/refs/heads/main.zip';
 const APP_OPEN_MAPS_URL_TYPE = 'GMAPLIST_APP_OPEN_MAPS_URL';
 
 function getDiagnosticSummary(diagnostics: unknown): string | null {
