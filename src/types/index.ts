@@ -13,6 +13,8 @@ export interface Place {
   lat?: number;
   lng?: number;
   address?: string;
+  /** Full place/address label from getlist [1][2], when present */
+  place_label?: string;
   phone?: string;
   website?: string;
   /** Google Places ID e.g. ChIJ... */
@@ -22,6 +24,8 @@ export interface Place {
   added_at?: number;
   /** Hex place ID e.g. 0x31da...:0xb565... for reliable Maps links */
   hex_place_id?: string;
+  /** Stable Google Maps feature tuple joined as "id0:id1"; used for static tags */
+  feature_id?: string;
   /** True when user has manually dragged this card to a different column */
   is_override: boolean;
   /** The list ID this place belongs to (for localStorage keying) */

@@ -1,232 +1,147 @@
 import { describe, it, expect } from 'vitest';
 import { flattenAndFind, parseApiJson } from '../apiParserService';
 
+function getlistPlace({
+  name,
+  label,
+  address,
+  note = "",
+  featureId = ["3592311145746771111", "3125426341002024374"],
+}: {
+  name: string;
+  label?: string;
+  address?: string;
+  note?: string;
+  featureId?: [string, string];
+}) {
+  return [
+    null,
+    [
+      null,
+      null,
+      label,
+      null,
+      address,
+      [null, null, 1.5140387, 103.6551804],
+      featureId,
+      "/g/11z8k42n7f",
+    ],
+    name,
+    note,
+    null,
+    null,
+    null,
+    null,
+    [[1], featureId],
+    [1786159254, 396798000],
+    [1786159254, 396798000],
+  ];
+}
+
+function listJson(places: unknown[]) {
+  return [
+    [
+      ["list123", 1, null, 1, 1],
+      2,
+      [3, 1, "https://www.google.com/maps/placelists/list/list123"],
+      null,
+      "My Test List",
+      null,
+      null,
+      null,
+      places,
+      null,
+      [1700000000, 0],
+      [1700000000, 0],
+      places.length,
+    ],
+  ];
+}
+
 describe('apiParserService', () => {
   it('finds the first nested value matching a heuristic', () => {
     const nested = ['skip', [null, ['target', ['later']]]];
     expect(flattenAndFind(nested, (value) => value === 'target')).toBe('target');
   });
 
-  it('parses valid JSON list data', () => {
-    const mockJson = [
-      [
-        [["list123"]],
-        null,
-        [null, null, "https://list.url"],
-        null,
-        "My Test List",
-        null,
-        null,
-        null,
-        [
-          [null, null, "Ramen Restaurant A", "Best ramen", null, null, null, null, null, [1680000000000]],
-          [null, null, "Park B", "Nice view", null, null, null, null, null, [1680000000000]]
-        ]
-      ]
-    ];
-    
-    const mockMeta = [
-      { __gcid: "gcid:ramen_restaurant", __type: "Ramen restaurant", __rating: 4.8, __reviews: 120 },
-      { __gcid: "gcid:park", __type: "Park", __rating: 4.5, __reviews: 300 }
-    ];
+  it('parses the real getlist shape without invented category metadata', () => {
+    const raw = ")]}'\n" + JSON.stringify(listJson([
+      getlistPlace({
+        name: "DUDU DUCK CAFE",
+        label: "Lot L1-078, DUDU DUCK CAFE, Tasek Central Mall, Skudai, Johor, Malaysia",
+        address: "Lot L1-078, Tasek Central Mall, Skudai, Johor, Malaysia",
+        note: "Butter",
+      }),
+    ]));
 
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw, mockMeta);
+    const result = parseApiJson(raw, [{
+      __lat: 1.5140387,
+      __lng: 103.6551804,
+      __address: "Lot L1-078, Tasek Central Mall, Skudai, Johor, Malaysia",
+      __hexId: "0x31da19b066f8cac9:0x2b5f2f8ea19dcbf6",
+    }]);
 
     expect(result.list_title).toBe("My Test List");
-    expect(result.places).toHaveLength(2);
-    
-    expect(result.places[0].place_name).toBe("Ramen Restaurant A");
-    expect(result.places[0].user_notes).toBe("Best ramen");
-    expect(result.places[0].primary_category).toBe("Food");
-    expect(result.places[0].star_rating).toBe(4.8);
-    expect(result.places[0].review_count).toBe(120);
-    
-    expect(result.places[1].place_name).toBe("Park B");
-    expect(result.places[1].primary_category).toBe("See");
-  });
-
-  it('handles missing meta array gracefully', () => {
-    const mockJson = [
-      [
-        null, null, null, null, "No Meta List", null, null, null,
-        [
-          [null, null, "Unknown Place", ""]
-        ]
-      ]
-    ];
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw);
-    
     expect(result.places).toHaveLength(1);
-    expect(result.places[0].primary_category).toBe("Unsorted");
-  });
-
-  it('keeps list-only extension data unsorted instead of guessing from names', () => {
-    const mockJson = [
-      [
-        null, null, null, null, "No Detail List", null, null, null,
-        [
-          [null, null, "Chuo University Tama Campus", ""],
-          [null, null, "Hidden Cocktail Bar", ""],
-        ]
-      ]
-    ];
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw);
-
     expect(result.places[0]).toMatchObject({
+      place_name: "DUDU DUCK CAFE",
       primary_category: "Unsorted",
       detailed_category: "Unknown",
-    });
-    expect(result.places[1]).toMatchObject({
-      primary_category: "Unsorted",
-      detailed_category: "Unknown",
+      user_notes: "Butter",
+      lat: 1.5140387,
+      lng: 103.6551804,
+      address: "Lot L1-078, Tasek Central Mall, Skudai, Johor, Malaysia",
+      place_label: "Lot L1-078, DUDU DUCK CAFE, Tasek Central Mall, Skudai, Johor, Malaysia",
+      hex_place_id: "0x31da19b066f8cac9:0x2b5f2f8ea19dcbf6",
+      feature_id: "3592311145746771111:3125426341002024374",
+      added_at: 1786159254,
     });
   });
-  
+
   it('falls back gracefully if JSON.parse fails', () => {
-    const raw = "invalid json";
-    const result = parseApiJson(raw);
+    const result = parseApiJson("invalid json");
     expect(result.places).toHaveLength(0);
     expect(result.list_title).toBe("My List");
   });
 
-  it('correctly maps coffee shop to Snack and bar to Drink', () => {
-    const mockJson = [
-      [
-        null, null, null, null, "List", null, null, null,
-        [
-          [null, null, "Starbucks", ""],
-          [null, null, "Irish Pub", ""]
-        ]
-      ]
-    ];
-    const mockMeta = [
-      { __gcid: "gcid:coffee_shop", __type: "Coffee Shop" },
-      { __gcid: "gcid:bar", __type: "Bar" }
-    ];
+  it('persists optional detail fields that are live on extension payloads', () => {
+    const raw = ")]}'\n" + JSON.stringify(listJson([
+      getlistPlace({
+        name: "Nested Cafe",
+        label: "Nested Cafe, old address text",
+        address: "123 Main St, Singapore",
+      }),
+    ]));
 
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw, mockMeta);
-
-    expect(result.places[0].primary_category).toBe("Snack");
-    expect(result.places[1].primary_category).toBe("Drink");
-  });
-
-  it('maps retail shop labels like Bag shop to Shop', () => {
-    const mockJson = [
-      [
-        null, null, null, null, "Retail List", null, null, null,
-        [
-          [null, null, "The Bag Creature", ""]
-        ]
-      ]
-    ];
-    const mockMeta = [
-      { __type: "Bag shop" }
-    ];
-
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw, mockMeta);
-
-    expect(result.places[0].primary_category).toBe("Shop");
-    expect(result.places[0].detailed_category).toBe("Bag shop");
-  });
-
-  it('persists coordinates, price, address, and heuristic detail fields', () => {
-    const mockJson = [
-      [
-        [["list123"]],
-        null,
-        [null, null, "https://list.url"],
-        null,
-        "Rich Detail List",
-        null,
-        null,
-        null,
-        [
-          [
-            null,
-            [
-              null,
-              null,
-              "Nested Cafe, old address text",
-              null,
-              "123 Main St, Singapore",
-              [null, null, 1.3521, 103.8198],
-              ["https://www.google.com/maps/place/nested-cafe", "https://nested.example"],
-              ["ChIJabcdef123456789"],
-              ["+65 1234 5678"],
-              ["CLOSED"],
-            ],
-            "Nested Cafe",
-            "Try the lunch set",
-            null,
-            null,
-            null,
-            null,
-            null,
-            [1680000000],
-          ],
-        ],
-      ],
-    ];
-
-    const mockMeta = [
-      { __gcid: "gcid:cafe", __type: "Cafe", __rating: 4.6, __reviews: 42, __price: 2, __hexId: "0x1:0x2" },
-    ];
-
-    const raw = ")]}'\n" + JSON.stringify(mockJson);
-    const result = parseApiJson(raw, mockMeta);
+    const result = parseApiJson(raw, [{
+      __rating: 4.6,
+      __reviews: 42,
+      __price: 2,
+      __hexId: "0x1:0x2",
+    }]);
 
     expect(result.places[0]).toMatchObject({
       place_name: "Nested Cafe",
+      primary_category: "Unsorted",
       price_level: "$$",
-      lat: 1.3521,
-      lng: 103.8198,
+      lat: 1.5140387,
+      lng: 103.6551804,
       address: "123 Main St, Singapore",
-      phone: "+65 1234 5678",
-      website: "https://nested.example",
-      google_place_id: "ChIJabcdef123456789",
-      business_status: "CLOSED",
+      star_rating: 4.6,
+      review_count: 42,
     });
   });
 
   it('does not use internal hex ids as Google place_id links', () => {
-    const mockJson = [
-      [
-        [["list123"]],
-        null,
-        [null, null, "https://list.url"],
-        null,
-        "Hex Link List",
-        null,
-        null,
-        null,
-        [
-          [
-            null,
-            [
-              null,
-              null,
-              "Place address text",
-              null,
-              "10 Test Road",
-              [null, null, 1.3, 103.8],
-            ],
-            "Hex Only Bar",
-            "",
-          ],
-        ],
-      ],
-    ];
+    const raw = ")]}'\n" + JSON.stringify(listJson([
+      getlistPlace({
+        name: "Hex Only Bar",
+        label: "Place address text",
+        address: "10 Test Road",
+      }),
+    ]));
 
-    const mockMeta = [
-      { __hexId: "0x31da19b066f8cac9:0x1a822ab9ded25293" },
-    ];
-
-    const result = parseApiJson(")]}'\n" + JSON.stringify(mockJson), mockMeta);
+    const result = parseApiJson(raw, [{ __hexId: "0x31da19b066f8cac9:0x1a822ab9ded25293" }]);
 
     expect(result.places[0].google_maps_link).not.toContain("place_id:0x");
     expect(result.places[0].google_maps_link).toContain("/maps/search/");
