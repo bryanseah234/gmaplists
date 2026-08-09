@@ -1,6 +1,6 @@
 {
-  "name": "gmaplist",
-  "short_name": "gmaplist",
+  "name": "gmaplists",
+  "short_name": "gmaplists",
   "description": "Mobile work queue for tagging collaborative Google Maps lists.",
   "start_url": "/",
   "scope": "/",

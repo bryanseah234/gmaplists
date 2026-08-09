@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() =>
           caches.match("/").then((cached) =>
-            cached || new Response("gmaplist is offline and no cached app shell is available.", {
+            cached || new Response("gmaplists is offline and no cached app shell is available.", {
               status: 503,
               headers: { "Content-Type": "text/plain; charset=utf-8" },
             })

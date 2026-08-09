@@ -51,6 +51,12 @@ export type SyncCountWarning = {
   percent_change: number;
 };
 
+export type SyncResult = {
+  received_count: number;
+  unique_count: number;
+  removed_count: number;
+};
+
 const staticTags = bundledTags as unknown as Record<string, StaticTagValue>;
 
 function chunk<T>(items: T[], size = BATCH_SIZE): T[][] {
@@ -189,7 +195,8 @@ async function syncListInChunks(
   places: Place[],
   placeRows: ReturnType<typeof toPlaceRow>[],
   now: string,
-): Promise<void> {
+  receivedCount: number,
+): Promise<SyncResult> {
   const { error: listError } = await client.from("lists").upsert({
     list_id: data.list_id,
     name: data.list_title,
@@ -234,6 +241,12 @@ async function syncListInChunks(
       .in("feature_id", ids);
     if (error) throw error;
   }
+
+  return {
+    received_count: receivedCount,
+    unique_count: places.length,
+    removed_count: removedIds.length,
+  };
 }
 
 async function syncListWithRpc(
@@ -241,8 +254,9 @@ async function syncListWithRpc(
   data: { list_id: string; list_title: string },
   places: Place[],
   placeRows: ReturnType<typeof toPlaceRow>[],
-): Promise<boolean> {
-  if (typeof client.rpc !== "function") return false;
+  receivedCount: number,
+): Promise<SyncResult | null> {
+  if (typeof client.rpc !== "function") return null;
 
   const rpcPlaces = placeRows.map((row, index) => ({
     feature_id: row.feature_id,
@@ -255,29 +269,38 @@ async function syncListWithRpc(
     added_at: places[index].added_at ?? null,
   }));
 
-  const { error } = await client.rpc("sync_gmaplist", {
+  const { data: rpcResult, error } = await client.rpc("sync_gmaplist", {
     p_list_id: data.list_id,
     p_list_name: data.list_title,
     p_places: rpcPlaces,
   });
 
-  if (!error) return true;
-  if (isMissingRpcError(error)) return false;
+  if (!error) {
+    const first = Array.isArray(rpcResult) ? rpcResult[0] : null;
+    return {
+      received_count: Number(first?.place_count ?? receivedCount),
+      unique_count: Number(first?.unique_count ?? places.length),
+      removed_count: Number(first?.removed_count ?? 0),
+    };
+  }
+  if (isMissingRpcError(error)) return null;
   throw error;
 }
 
-export async function syncListToSupabase(data: { list_id: string; list_title: string; places: Place[] }): Promise<void> {
+export async function syncListToSupabase(data: { list_id: string; list_title: string; places: Place[] }): Promise<SyncResult> {
   await requireSignedInUserId();
   const client = requireSupabase();
   const now = new Date().toISOString();
   assertAllPlacesHaveFeatureIds(data.places);
+  const receivedPlaceRows = data.places.map(toPlaceRow);
+  assertPlaceRecordsContainNoContributorData(receivedPlaceRows);
   const places = dedupePlacesByFeatureId(data.places);
 
   const placeRows = places.map(toPlaceRow);
   assertPlaceRecordsContainNoContributorData(placeRows);
 
-  const syncedByRpc = await syncListWithRpc(client, data, places, placeRows);
-  if (!syncedByRpc) await syncListInChunks(client, data, places, placeRows, now);
+  const syncResult = await syncListWithRpc(client, data, data.places, receivedPlaceRows, data.places.length)
+    ?? await syncListInChunks(client, data, places, placeRows, now, data.places.length);
 
   const seedClassifications = places
     .map((place) => {
@@ -297,6 +320,8 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
     const { error } = await client.from("classifications").upsert(rows, { onConflict: "feature_id", ignoreDuplicates: true });
     if (error) throw error;
   }
+
+  return syncResult;
 }
 
 export async function getSyncCountWarning(data: { list_id: string; list_title: string; places: Place[] }): Promise<SyncCountWarning | null> {

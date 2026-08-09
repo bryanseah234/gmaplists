@@ -315,7 +315,7 @@ describe("gmaplistStore resync behavior", () => {
   it("dedupes repeated feature ids before sync upserts and keeps the last occurrence", async () => {
     const { syncListToSupabase, loadPlacesForList } = await import("../gmaplistStore");
 
-    await syncListToSupabase({
+    const syncResult = await syncListToSupabase({
       list_id: "list-malaysia",
       list_title: "Malaysia spots",
       places: [
@@ -325,6 +325,11 @@ describe("gmaplistStore resync behavior", () => {
       ],
     });
 
+    expect(syncResult).toEqual({
+      received_count: 3,
+      unique_count: 2,
+      removed_count: 0,
+    });
     expect(mockDb.tables.places.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
     expect(mockDb.tables.list_items.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
     expect(mockDb.tables.places).toContainEqual(expect.objectContaining({

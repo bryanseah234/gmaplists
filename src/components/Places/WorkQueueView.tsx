@@ -23,7 +23,7 @@ interface WorkQueueViewProps {
 
 const CATEGORY_ORDER = COLUMNS.map((column) => column.id);
 const CATEGORY_LABELS = new Map(COLUMNS.map((column) => [column.id, column]));
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 18;
 
 type QueueUiState = {
   categoryFilter: string;
@@ -65,6 +65,39 @@ function contextLine(place: Place): string {
   return [place.place_label, place.address, place.user_notes ? `Note: ${place.user_notes}` : null]
     .filter(Boolean)
     .join(" · ");
+}
+
+function detailLine(place: Place): string {
+  const details = [
+    place.star_rating ? `${place.star_rating.toFixed(1)} stars` : null,
+    place.review_count ? `${place.review_count.toLocaleString()} reviews` : null,
+    place.price_level,
+  ].filter(Boolean);
+  return details.length > 0 ? details.join(" · ") : "Google rating/reviews/category not present in captured list data";
+}
+
+function sourceLabel(place: Place): string {
+  if (place.is_override) return "Manual";
+  if (place.detailed_category.startsWith("Classification")) return "Saved";
+  if (place.detailed_category.startsWith("Rule:")) return "Rules";
+  return "Unsorted";
+}
+
+function categoryClass(category: string): string {
+  switch (category) {
+    case "Drink":
+      return "bg-rose-600 text-white";
+    case "Food":
+      return "bg-orange-600 text-white";
+    case "Snack":
+      return "bg-amber-500 text-zinc-950";
+    case "Shop":
+      return "bg-sky-600 text-white";
+    case "See":
+      return "bg-emerald-600 text-white";
+    default:
+      return "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-950";
+  }
 }
 
 export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
@@ -217,19 +250,22 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 pb-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 pb-20">
       <section className="sticky top-12 z-30 -mx-3 border-b border-zinc-200 bg-zinc-50/95 px-3 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-        <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-zinc-950 dark:text-white">{selectedList?.name ?? "Google Maps list"}</p>
-            <p className="mt-0.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-              {doneCount}/{places.length} done · {remaining.length} remain · {shownNow} shown
-            </p>
+            <p className="truncate text-lg font-black text-zinc-950 dark:text-white">{selectedList?.name ?? "Google Maps list"}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{doneCount}/{places.length} done</span>
+              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{remaining.length} remain</span>
+              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{shownNow} visible</span>
+              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{selectedList?.unclassified_count ?? 0} unclassified</span>
+            </div>
           </div>
           <select
             value={selectedListId}
             onChange={(event) => onSelectList(event.target.value)}
-            className="h-10 max-w-[42vw] shrink-0 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-950 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+            className="h-10 w-full shrink-0 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-950 md:w-56 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
             aria-label="Google Maps list"
           >
             {lists.map((list) => (
@@ -239,7 +275,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
             ))}
           </select>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progressPercent}%` }} />
         </div>
         <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
@@ -250,7 +286,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
               <button
                 key={category}
                 onClick={() => updateQueueState({ ...queueState, categoryFilter: category })}
-                className={`flex h-10 shrink-0 items-center gap-1 rounded-full px-3 text-sm font-semibold ${
+                className={`flex h-9 shrink-0 items-center gap-1 rounded-full px-3 text-sm font-semibold ${
                   categoryFilter === category
                     ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                     : "bg-white text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-800"
@@ -277,7 +313,9 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
             className="min-w-0 flex-1 bg-transparent text-base text-zinc-950 outline-none dark:text-white"
           />
         </div>
-        <p className="mt-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-500">Last synced: {formatDate(selectedList?.last_synced ?? null)}</p>
+        <p className="mt-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-500">
+          Last synced: {formatDate(selectedList?.last_synced ?? null)} · Google ratings, reviews, and Google category are not in the saved-list payload.
+        </p>
       </section>
 
       <section className="rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -350,60 +388,73 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
 
         return (
           <section key={category} className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="sticky top-[154px] z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-              <h2 className="text-sm font-bold text-zinc-950 dark:text-white">{label?.emoji} {category}</h2>
+            <div className="sticky top-[174px] z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <h2 className="text-sm font-black text-zinc-950 dark:text-white">{category}</h2>
               <span className="text-xs font-semibold text-zinc-500">{grouped[category].length} remain · showing {items.length}</span>
             </div>
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <div className="grid gap-2 p-2 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((place) => {
                 const featureId = place.feature_id;
                 const isRowBusy = Boolean(featureId && rowBusy[featureId]);
                 const rowError = featureId ? rowErrors[featureId] : rowErrors.missing;
                 return (
-                <article key={featureId ?? place.place_name} className="grid gap-3 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="min-w-0 text-lg font-bold leading-snug text-zinc-950 underline-offset-2 hover:underline dark:text-white">
-                      {place.place_name}
-                    </a>
-                    <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-1 text-xs font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      {category}
-                    </span>
-                  </div>
-                  <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{contextLine(place) || "No extra context."}</p>
-                  {(place.resolved_reason || place.resolved_confidence || place.is_override) && (
-                    <p className="rounded-md bg-zinc-50 px-2 py-1.5 text-xs font-medium text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
-                      {place.is_override ? "Manual override" : place.resolved_confidence ? `${place.resolved_confidence} confidence` : "Suggested"}
-                      {place.resolved_reason ? ` · ${place.resolved_reason}` : ""}
+                <article key={featureId ?? place.place_name} className="grid min-h-52 content-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="grid gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="min-w-0 text-base font-black leading-tight text-zinc-950 underline-offset-2 hover:underline dark:text-white">
+                        {place.place_name || "Unnamed place"}
+                      </a>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${categoryClass(category)}`}>
+                        {category}
+                      </span>
+                    </div>
+                    <p className="line-clamp-2 text-xs font-medium leading-relaxed text-zinc-600 dark:text-zinc-300">
+                      {place.address || place.place_label || "No address captured"}
                     </p>
-                  )}
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                    <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-bold text-white shadow-sm" title="Open in Google Maps">
-                      <ExternalLink size={16} />
-                      Open Maps
-                    </a>
-                    <button
+                    {place.user_notes && (
+                      <p className="line-clamp-2 rounded-md bg-white px-2 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-800">
+                        Note: {place.user_notes}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{sourceLabel(place)}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{place.resolved_confidence ?? "low"} confidence</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{detailLine(place)}</span>
+                    </div>
+                    {place.resolved_reason && (
+                      <p className="line-clamp-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">{place.resolved_reason}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                      <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-black text-white shadow-sm" title="Open in Google Maps">
+                        <ExternalLink size={16} />
+                        Open Maps
+                      </a>
+                      <button
+                        disabled={isRowBusy}
+                        onClick={() => runRowAction(featureId, "done", (id) => onDoneChange(id, true))}
+                        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-black text-white shadow-sm disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {isRowBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                        {rowBusy[featureId ?? ""] === "done" ? "Saving" : "Done"}
+                      </button>
+                    </div>
+                    <select
+                      value={CATEGORY_LABELS.has(place.primary_category) ? place.primary_category : "Unsorted"}
                       disabled={isRowBusy}
-                      onClick={() => runRowAction(featureId, "done", (id) => onDoneChange(id, true))}
-                      className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm disabled:cursor-wait disabled:opacity-60"
+                      onChange={(event) => runRowAction(featureId, "category", (id) => onCategoryChange(id, event.target.value as AutoTagCategory))}
+                      className="h-10 min-w-0 rounded-md border border-zinc-200 bg-white px-2 text-sm font-bold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                      aria-label={`Change category for ${place.place_name}`}
                     >
-                      {isRowBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                      {rowBusy[featureId ?? ""] === "done" ? "Saving" : "Done"}
-                    </button>
+                      {COLUMNS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    </select>
+                    {rowError && (
+                      <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+                        {rowError}
+                      </p>
+                    )}
                   </div>
-                  <select
-                    value={CATEGORY_LABELS.has(place.primary_category) ? place.primary_category : "Unsorted"}
-                    disabled={isRowBusy}
-                    onChange={(event) => runRowAction(featureId, "category", (id) => onCategoryChange(id, event.target.value as AutoTagCategory))}
-                    className="h-11 min-w-0 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-sm font-semibold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                    aria-label={`Change category for ${place.place_name}`}
-                  >
-                    {COLUMNS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                  </select>
-                  {rowError && (
-                    <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
-                      {rowError}
-                    </p>
-                  )}
                 </article>
                 );
               })}

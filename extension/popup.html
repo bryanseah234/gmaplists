@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GMapLists</title>
+    <title>gmaplists</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -16,7 +16,9 @@
 
       body {
         width: 420px;
+        max-height: 580px;
         margin: 0;
+        overflow: hidden;
         background: #f4f4f5;
         color: #18181b;
       }
@@ -25,6 +27,8 @@
         display: grid;
         gap: 12px;
         padding: 14px;
+        max-height: 580px;
+        overflow: hidden;
       }
 
       header {
@@ -192,7 +196,7 @@
       }
 
       .logs {
-        max-height: 220px;
+        max-height: 165px;
         overflow: auto;
         border-radius: 8px;
         background: #09090b;
@@ -282,7 +286,7 @@
       <header>
         <img src="icons/icon-32x32.png" alt="" />
         <div>
-          <h1>GMapLists</h1>
+          <h1>gmaplists</h1>
           <p>Open one Maps list tab and watch extraction progress here.</p>
         </div>
       </header>
@@ -307,7 +311,7 @@
           />
           <button id="open-button" type="submit">Open Focused Maps Tab</button>
         </form>
-        <p class="muted">Keep the deployed GMapList app open. This opens or focuses Maps so the extension knows exactly which list to import.</p>
+        <p class="muted">Keep the deployed gmaplists app open. This opens or focuses Maps so the extension knows exactly which list to import.</p>
       </section>
 
       <section class="panel">

@@ -1,8 +1,8 @@
-# gmaplist
+# gmaplists
 
-gmaplist is a decision aid for tagging collaborative Google Maps saved lists.
+gmaplists is a decision aid for tagging collaborative Google Maps saved lists.
 
-Google Maps stays the home of the real tags. I tag places in the Maps mobile app. This app exists because the web `getlist` payload contains the places in a saved list but does not contain Google's per-list tag data, and there is no known web RPC for writing those tags. gmaplist removes the judgment work: it suggests the category, opens the place in Maps, and lets me mark my own progress after I tag it manually.
+Google Maps stays the home of the real tags. I tag places in the Maps mobile app. This app exists because the web `getlist` payload contains the places in a saved list but does not contain Google's per-list tag data, and there is no known web RPC for writing those tags. gmaplists removes the judgment work: it suggests the category, opens the place in Maps, and lets me mark my own progress after I tag it manually.
 
 ## What It Does
 
@@ -10,7 +10,7 @@ Google Maps stays the home of the real tags. I tag places in the Maps mobile app
 - Stores stripped place records in Supabase, keyed by Google Maps feature ID.
 - Supports multiple country lists through a `lists` table and `list_items` join table.
 - Resolves categories through one precedence path: manual override, stored classification, deterministic rules, then `Unsorted`.
-- Shows a mobile-first work queue grouped by category in batches of about ten.
+- Shows a mobile-first work queue grouped by category in compact batches.
 - Opens each place directly in Google Maps so tagging on the phone is mechanical.
 - Tracks per-list done state, because Google Maps tags are per list.
 - Generates a copy-paste classification prompt for places that still have no stored category.
@@ -24,11 +24,11 @@ Google Maps stays the home of the real tags. I tag places in the Maps mobile app
 - It cannot reconcile app progress with Maps tag state.
 - It cannot sync tags from Google, because the captured web payload has no tag field.
 
-The done checkbox is therefore manual by design: after tagging a place in Maps, mark it done in gmaplist.
+The done checkbox is therefore manual by design: after tagging a place in Maps, mark it done in gmaplists.
 
 ## Data Model
 
-Supabase schema lives in `supabase/migrations/20260809000000_multi_list_tag_queue.sql`.
+Supabase schema and function grants live in `supabase/migrations/`.
 
 - `lists`: `list_id text primary key`, name, last synced timestamp.
 - `places`: disposable cache keyed by `feature_id`; no `list_id` lives here.
@@ -60,7 +60,7 @@ The category source order is:
 
 `src/data/tags.json` is a bundled seed for the Malaysia list captured during development. On sync, matching entries are inserted into `classifications` only when that `feature_id` has no existing classification. The upsert uses duplicate-ignore semantics, so `tags.json` is not a live category layer after the first seed. Editing `tags.json` later will not overwrite classifications already stored in Supabase; delete or update the Supabase row explicitly if a stored classification needs to change.
 
-For unclassified places, use the queue's prompt button. It copies the category definitions plus place name, place label, address, note, and feature ID. Paste that prompt into an LLM yourself, then paste the returned JSON back into gmaplist. The app validates:
+For unclassified places, use the queue's prompt button. It copies the category definitions plus place name, place label, address, note, and feature ID. Paste that prompt into an LLM yourself, then paste the returned JSON back into gmaplists. The app validates:
 
 - JSON arrays and markdown code fences.
 - `feature_id` must be in the current unclassified set.
@@ -71,7 +71,7 @@ For unclassified places, use the queue's prompt button. It copies the category d
 ## Sync Workflow
 
 1. Sign in with Supabase email magic link.
-2. Keep the deployed gmaplist tab open.
+2. Keep the deployed gmaplists tab open.
 3. Open the Chrome extension popup.
 4. Paste one Google Maps saved-list URL.
 5. The extension opens Maps and captures `/maps/preview/entitylist/getlist`.
@@ -83,10 +83,10 @@ If you sync while signed out, the app shows an error and does not write the capt
 
 1. Pick a country list from the list switcher.
 2. Filter to one category, usually `Drink`, `Food`, `Snack`, `See`, or `Shop`.
-3. Work the first batch of about ten remaining places.
+3. Work the first compact batch of remaining places.
 4. Tap the place name to open it in Google Maps.
 5. Tag it in Maps.
-6. Return to gmaplist and tap Done.
+6. Return to gmaplists and tap Done.
 
 Progress is per list. If the same place appears in another country list, its category is reused, but its done state is separate.
 

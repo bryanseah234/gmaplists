@@ -15,6 +15,7 @@ import {
   setProgressDone,
   syncListToSupabase,
   SyncCountWarning,
+  SyncResult,
 } from "./services/gmaplistStore";
 import { isSupabaseConfigured, supabase } from "./services/supabaseClient";
 import { ExtractedData, ListSummary, Place } from "./types";
@@ -101,7 +102,7 @@ export default function App() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [lists, setLists] = useState<ListSummary[]>([]);
   const [selectedListId, setSelectedListId] = useState("");
-  const [newPlacesCount, setNewPlacesCount] = useState(0);
+  const [syncSummary, setSyncSummary] = useState<SyncResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +159,7 @@ export default function App() {
   }, [selectedListId, session]);
 
   const formatError = useCallback((err: unknown, action: string): string => {
-    console.error(`[gmaplist] ${action} failed`, err);
+    console.error(`[gmaplists] ${action} failed`, err);
     if (err && typeof err === "object") {
       const values = err as Record<string, unknown>;
       const status = typeof values.status === "number" ? values.status : undefined;
@@ -197,7 +198,7 @@ export default function App() {
         setPlaces([]);
         setData(null);
         setSelectedListId("");
-        setNewPlacesCount(0);
+        setSyncSummary(null);
         setIsLoading(false);
         setIsReceiving(false);
         setExtensionStatus(null);
@@ -271,8 +272,8 @@ export default function App() {
         setError(null);
         return;
       }
-      await syncListToSupabase(result);
-      setNewPlacesCount(result.places.length);
+      const resultSummary = await syncListToSupabase(result);
+      setSyncSummary(resultSummary);
       await refreshLists(result.list_id);
     } catch (err) {
       setError(formatError(err, "Sync"));
@@ -292,8 +293,8 @@ export default function App() {
     syncInFlightRef.current = pendingSync.data.list_id;
     setSyncingListId(pendingSync.data.list_id);
     try {
-      await syncListToSupabase(pendingSync.data);
-      setNewPlacesCount(pendingSync.data.places.length);
+      const resultSummary = await syncListToSupabase(pendingSync.data);
+      setSyncSummary(resultSummary);
       await refreshLists(pendingSync.data.list_id);
       setPendingSync(null);
     } catch (err) {
@@ -437,7 +438,7 @@ export default function App() {
   const handleReset = () => {
     setData(null);
     setPlaces([]);
-    setNewPlacesCount(0);
+    setSyncSummary(null);
     setError(null);
     setIsReceiving(true);
   };
@@ -453,9 +454,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-50 transition-colors dark:bg-zinc-950">
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
-        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-3 px-3">
+        <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-3 px-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">gmaplist</span>
+            <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">gmaplists</span>
             {data && <span className="truncate text-xs text-zinc-400">{data.list_title}</span>}
             <span className={`shrink-0 text-[10px] font-semibold ${hasExtensionVersionMismatch ? "text-amber-600 dark:text-amber-300" : "text-zinc-400"}`}>
               app {APP_VERSION} · ext {extensionVersion}
@@ -479,7 +480,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-3 py-4">
+      <main className="mx-auto max-w-6xl px-3 py-4">
         {isLoading && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="rounded-lg bg-white p-6 shadow-2xl dark:bg-zinc-900">
@@ -538,7 +539,7 @@ export default function App() {
           <div className="flex min-h-[calc(100vh-80px)] items-center justify-center py-8">
             <form onSubmit={signIn} className="grid w-full max-w-md gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <div>
-                <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to gmaplist</h1>
+                <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to gmaplists</h1>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Email magic link only. Sync is disabled while signed out.</p>
               </div>
               <label htmlFor="email" className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
@@ -568,9 +569,11 @@ export default function App() {
             <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} appVersion={APP_VERSION} expectedExtensionVersion={EXPECTED_EXTENSION_VERSION} />
           </div>
         )}
-        {newPlacesCount > 0 && (
+        {syncSummary && (
           <div className="fixed bottom-3 left-3 right-3 mx-auto max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-800 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            Synced {newPlacesCount} places.
+            Synced {syncSummary.received_count} received · {syncSummary.unique_count} unique
+            {syncSummary.received_count !== syncSummary.unique_count ? ` · ${syncSummary.received_count - syncSummary.unique_count} duplicate` : ""}
+            {syncSummary.removed_count > 0 ? ` · ${syncSummary.removed_count} removed` : " · 0 removed"}
           </div>
         )}
       </main>

@@ -14,7 +14,7 @@ const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
 const CONTRIBUTOR_INDEX = 12;
-const EXTENSION_VERSION = "0.1.12";
+const EXTENSION_VERSION = "0.1.13";
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
@@ -405,7 +405,7 @@ chrome.webRequest.onBeforeRedirect.addListener(
     });
 
     addDebugLog("info", "Stored short URL redirect", { listId, redirectUrl });
-    console.info("[GMapLists] stored short URL redirect", { listId, redirectUrl });
+    console.info("[gmaplists] stored short URL redirect", { listId, redirectUrl });
   },
   {
     urls: ["*://maps.app.goo.gl/*"],
@@ -539,7 +539,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const sanitized = sanitizePayload(message.payload);
   chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
     addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
-    console.info("[GMapLists] stored captured payload", sanitized.diagnostics);
+    console.info("[gmaplists] stored captured payload", sanitized.diagnostics);
     broadcastToApp(sanitized);
     sendResponse({ ok: true });
   });
