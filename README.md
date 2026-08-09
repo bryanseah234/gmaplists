@@ -143,3 +143,7 @@ The PWA service worker is intentionally update-aggressive: Vercel serves `/sw.js
 and `/index.html` with `Cache-Control: no-cache, no-store, must-revalidate`, the
 worker activates immediately, and the page reloads once when a new worker takes
 control. This avoids a phone continuing to run a stale bundle after deployment.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

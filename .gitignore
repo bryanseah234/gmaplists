@@ -52,3 +52,11 @@ fixtures/
 !.env.example
 !.env.template
 !.env.sample
+.env
+.env.*
+node_modules/
+dist/
+build/
+.next/
+__pycache__/
+.pytest_cache/
