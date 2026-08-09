@@ -150,7 +150,7 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
-  const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning } | null>(null);
+  const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning; payloadKey?: string } | null>(null);
   const [syncingListId, setSyncingListId] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<PersistedSyncAttempt | null>(() => loadPersistedSyncAttempt());
   const syncInFlightRef = useRef<string | null>(null);
@@ -297,7 +297,7 @@ export default function App() {
     await supabase?.auth.signOut();
   };
 
-  const ingestData = useCallback(async (result: ExtractedData): Promise<boolean> => {
+  const ingestData = useCallback(async (result: ExtractedData, payloadKey?: string): Promise<boolean> => {
     try {
       if (!session) {
         setError("Sign in before syncing. The captured Maps payload was not saved.");
@@ -311,7 +311,7 @@ export default function App() {
       setSyncingListId(result.list_id);
       const warning = await getSyncCountWarning(result);
       if (warning) {
-        setPendingSync({ data: result, warning });
+        setPendingSync({ data: result, warning, payloadKey });
         setError(null);
         return false;
       }
@@ -376,6 +376,7 @@ export default function App() {
       setSyncNotice(null);
       setSyncSummary(resultSummary);
       await refreshLists(pendingSync.data.list_id);
+      if (pendingSync.payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, pendingSync.payloadKey);
       setPendingSync(null);
     } catch (err) {
       const message = formatError(err, "Confirmed sync");
@@ -451,7 +452,7 @@ export default function App() {
         worker.onmessage = async (workerEvent) => {
           if (workerEvent.data.action === "PARSE_COMPLETE") {
             try {
-              const handled = await ingestData(workerEvent.data.data);
+              const handled = await ingestData(workerEvent.data.data, payloadKey);
               if (handled && payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, payloadKey);
               pushListUrl(workerEvent.data.data.list_id);
             } finally {

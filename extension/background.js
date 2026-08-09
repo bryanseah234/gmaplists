@@ -384,9 +384,16 @@ async function validateCaptureIntent(getlistUrl, tabId) {
 
 function storeAndBroadcastPayload(payload) {
   const sanitized = sanitizePayload(payload);
-  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
-    addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
-    broadcastToApp(sanitized);
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
+      broadcastToApp(sanitized);
+      resolve();
+    });
   });
 }
 
@@ -428,7 +435,7 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
       },
     };
 
-    storeAndBroadcastPayload(payload);
+    await storeAndBroadcastPayload(payload);
     await removeStored(CAPTURE_INTENT_KEY);
     lastCompletedExtractionKey = getExtractionKey(getlistUrl);
     lastCompletedExtractionAt = Date.now();
@@ -597,7 +604,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return false;
       }
 
-      chrome.tabs.create({ url: url.href, active: true }, async (tab) => {
+      chrome.tabs.create({ url: "about:blank", active: true }, async (tab) => {
         if (tab?.windowId != null) chrome.windows.update(tab.windowId, { focused: true });
         clearLatestPayload();
         const intent = {
@@ -608,6 +615,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           source: "open-maps-url",
         };
         await setStored({ [CAPTURE_INTENT_KEY]: intent });
+        if (tab?.id != null) {
+          await chrome.tabs.update(tab.id, { url: url.href, active: true });
+        }
         addDebugLog("info", "Opened Maps tab from extension popup", { url: url.href });
         broadcastStatus("loading", "Opened Google Maps list tab. Waiting for that tab's list request...", intent);
         sendResponse({ ok: true });
