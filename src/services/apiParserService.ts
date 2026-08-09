@@ -1,5 +1,4 @@
 import { ExtractedData, Place, UIConfig } from "../types";
-import { resolveAutoTag } from "./autoTagService";
 import { assertContributorProfilesStrippedFromGetlist, stripContributorProfilesFromGetlist } from "./privacy";
 
 export function flattenAndFind(array: any[], predicate: (val: any) => boolean): any {
@@ -214,21 +213,13 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
     const address = pickAddress(p, placeMeta, name);
     const businessStatus = asString(placeMeta.__businessStatus) ?? asString(placeMeta.business_status) ?? pickBusinessStatus(searchRoots);
     const featureId = featureIdFromListPlace(p);
-    const tag = resolveAutoTag({
-      place_name: name,
-      place_label: placeLabel,
-      address,
-      user_notes: userNote || undefined,
-      feature_id: featureId,
-    });
-
     const addedAt: number | undefined =
       Array.isArray(p[9]) && typeof p[9][0] === "number" ? p[9][0] : undefined;
 
     places.push({
       place_name: name,
-      primary_category: tag.category,
-      detailed_category: tag.detailedCategory,
+      primary_category: "Unsorted",
+      detailed_category: "Unclassified parsed payload",
       star_rating: rating,
       review_count: reviews,
       user_notes: userNote || undefined,

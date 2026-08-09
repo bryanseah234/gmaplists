@@ -85,8 +85,8 @@ describe('apiParserService', () => {
     expect(result.places).toHaveLength(1);
     expect(result.places[0]).toMatchObject({
       place_name: "DUDU DUCK CAFE",
-      primary_category: "Snack",
-      detailed_category: "Rule: snack.sweets.bakery.note",
+      primary_category: "Unsorted",
+      detailed_category: "Unclassified parsed payload",
       user_notes: "Butter",
       lat: 1.5140387,
       lng: 103.6551804,
@@ -122,8 +122,8 @@ describe('apiParserService', () => {
 
     expect(result.places[0]).toMatchObject({
       place_name: "Nested Cafe",
-      primary_category: "Snack",
-      detailed_category: "Rule: snack.sweets.bakery",
+      primary_category: "Unsorted",
+      detailed_category: "Unclassified parsed payload",
       price_level: "$$",
       lat: 1.5140387,
       lng: 103.6551804,
@@ -148,7 +148,7 @@ describe('apiParserService', () => {
     expect(result.places[0].google_maps_link).toContain("/maps/search/");
   });
 
-  it('uses committed static tags before local rules', () => {
+  it('does not apply committed static tags in the parser path', () => {
     const raw = ")]}'\n" + JSON.stringify(listJson([
       getlistPlace({
         name: "Blackbyrd KL",
@@ -162,8 +162,8 @@ describe('apiParserService', () => {
 
     expect(result.places[0]).toMatchObject({
       place_name: "Blackbyrd KL",
-      primary_category: "Food",
-      detailed_category: "Static tag (medium)",
+      primary_category: "Unsorted",
+      detailed_category: "Unclassified parsed payload",
       feature_id: "3588304369080315123:8871540845564433213",
     });
   });
