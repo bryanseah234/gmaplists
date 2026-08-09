@@ -14,7 +14,7 @@ const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
 const CONTRIBUTOR_INDEX = 12;
-const EXTENSION_VERSION = "0.1.11";
+const EXTENSION_VERSION = "0.1.12";
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
