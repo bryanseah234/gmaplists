@@ -94,6 +94,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
+  const [authCooldown, setAuthCooldown] = useState(0);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
@@ -145,11 +146,22 @@ export default function App() {
         setPlaces([]);
         setData(null);
         setSelectedListId("");
+        setIsLoading(false);
+        setIsReceiving(false);
+        setExtensionStatus(null);
       }
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (authCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setAuthCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [authCooldown]);
 
   useEffect(() => {
     if (!session) return;
@@ -171,8 +183,16 @@ export default function App() {
         emailRedirectTo: window.location.origin,
       },
     });
-    if (authError) setError(authError.message);
-    else setAuthMessage("Magic link sent. Check your email.");
+    if (authError) {
+      const message = authError.message.toLowerCase().includes("rate limit")
+        ? "Email rate limit hit. Wait a minute, then request one new magic link."
+        : authError.message;
+      setError(message);
+      if (authError.message.toLowerCase().includes("rate limit")) setAuthCooldown(60);
+    } else {
+      setAuthCooldown(60);
+      setAuthMessage("Magic link sent. Check your email.");
+    }
   };
 
   const signOut = async () => {
@@ -206,11 +226,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!session) return;
     const slug = window.location.pathname.replace(/^\//, "").trim();
     if (slug && slug.length > 10) setIsReceiving(true);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
+    if (!session) {
+      setIsReceiving(false);
+      return;
+    }
     setIsReceiving(true);
     const handler = (event: MessageEvent) => {
       try {
@@ -263,7 +288,7 @@ export default function App() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [ingestData, pushListUrl]);
+  }, [ingestData, pushListUrl, session]);
 
   const handleCategoryChange = useCallback(async (featureId: string, newCategory: AutoTagCategory) => {
     await saveCategoryOverride(featureId, newCategory);
@@ -373,9 +398,13 @@ export default function App() {
                 placeholder="you@example.com"
                 className="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
               />
-              <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-zinc-950 text-sm font-bold text-white dark:bg-white dark:text-zinc-950">
+              <button
+                disabled={authCooldown > 0 || !email.trim()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-zinc-950 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-950"
+              >
                 <Mail size={16} /> Send magic link
               </button>
+              {authCooldown > 0 && <p className="text-xs text-zinc-500 dark:text-zinc-400">You can request another link in {authCooldown}s.</p>}
               {!isSupabaseConfigured && <p className="text-xs text-red-600">Missing Supabase environment variables.</p>}
               {authMessage && <p className="text-xs text-emerald-600">{authMessage}</p>}
             </form>
