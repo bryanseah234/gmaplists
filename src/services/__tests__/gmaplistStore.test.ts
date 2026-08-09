@@ -367,4 +367,80 @@ describe("gmaplistStore resync behavior", () => {
       percent_change: 100,
     }));
   });
+
+  it("previews fenced classification JSON and rejects unsafe entries", async () => {
+    const {
+      previewClassificationImport,
+      saveCategoryOverride,
+      syncListToSupabase,
+    } = await import("../gmaplistStore");
+
+    await syncListToSupabase({
+      list_id: "list-malaysia",
+      list_title: "Malaysia spots",
+      places: [
+        place("feature-food", "Food Place"),
+        place("feature-drink", "Drink Place"),
+        place("feature-override", "Override Place"),
+      ],
+    });
+    await saveCategoryOverride("feature-override", "Shop");
+
+    const preview = await previewClassificationImport(
+      "```json\n" + JSON.stringify({
+        classifications: [
+          { feature_id: "feature-food", category: "Food", confidence: "high", reason: "Full meal venue." },
+          { feature_id: "feature-drink", category: "Drink", confidence: "medium", reason: "Bar venue." },
+          { feature_id: "feature-unknown", category: "Food", confidence: "high", reason: "Unknown id." },
+          { feature_id: "feature-override", category: "Drink", confidence: "high", reason: "Should not overwrite." },
+          { feature_id: "feature-food", category: "Bad", confidence: "high", reason: "Invalid category." },
+          { feature_id: "feature-drink", category: "Drink", confidence: "certain", reason: "Invalid confidence." },
+          { feature_id: "feature-drink", category: "Drink", confidence: "low", reason: "" },
+        ],
+      }) + "\n```",
+      [
+        place("feature-food", "Food Place"),
+        place("feature-drink", "Drink Place"),
+        place("feature-override", "Override Place"),
+      ],
+    );
+
+    expect(preview.accepted).toEqual([
+      { feature_id: "feature-food", category: "Food", confidence: "high", reason: "Full meal venue." },
+      { feature_id: "feature-drink", category: "Drink", confidence: "medium", reason: "Bar venue." },
+    ]);
+    expect(preview.rejected).toEqual(expect.arrayContaining([
+      { feature_id: "feature-unknown", reason: "feature_id is not in the current unclassified set." },
+      { feature_id: "feature-override", reason: "feature_id has a manual override and will not be overwritten." },
+      { feature_id: "feature-food", reason: "Unknown category." },
+      { feature_id: "feature-drink", reason: "Unknown confidence." },
+      { feature_id: "feature-drink", reason: "Missing reason." },
+    ]));
+  });
+
+  it("dedupes repeated pasted classifications and keeps the last entry when saving", async () => {
+    const { saveClassifications } = await import("../gmaplistStore");
+
+    await saveClassifications([
+      { feature_id: "feature-a", category: "Snack", confidence: "low", reason: "First pass." },
+      { feature_id: "feature-a", category: "Drink", confidence: "high", reason: "Reviewed bar." },
+    ]);
+
+    expect(mockDb.tables.classifications.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
+    expect(mockDb.tables.classifications).toContainEqual(expect.objectContaining({
+      feature_id: "feature-a",
+      category: "Drink",
+      confidence: "high",
+      reason: "Reviewed bar.",
+    }));
+  });
+
+  it("throws on classification JSON with the wrong top-level shape", async () => {
+    const { previewClassificationImport } = await import("../gmaplistStore");
+
+    await expect(previewClassificationImport(
+      JSON.stringify({ items: [] }),
+      [place("feature-a", "A Place")],
+    )).rejects.toThrow("Expected a JSON array or an object with a classifications array.");
+  });
 });
