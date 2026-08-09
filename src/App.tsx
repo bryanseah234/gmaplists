@@ -24,11 +24,15 @@ type Theme = "light" | "dark" | "system";
 
 const THEME_STORAGE_KEY = "maplist-theme";
 const SELECTED_LIST_STORAGE_KEY = "gmaplist-selected-list";
+const SYNC_ATTEMPT_STORAGE_KEY = "gmaplists-sync-attempt";
+const PROCESSED_PAYLOAD_STORAGE_KEY = "gmaplists-processed-payload";
+const APP_REQUEST_LATEST_TYPE = "GMAPLIST_APP_REQUEST_LATEST";
 
 type IncomingMapsPayload = {
   data: unknown;
   meta?: unknown;
   diagnostics?: unknown;
+  capturedAt?: number;
 };
 
 type ExtensionStatus = {
@@ -44,6 +48,15 @@ type ExtensionLogEntry = {
   details?: unknown;
   capturedAt?: number;
   pageUrl?: string;
+};
+
+type PersistedSyncAttempt = {
+  status: "in_progress" | "failed";
+  list_id: string;
+  list_title: string;
+  started_at: string;
+  updated_at: string;
+  message?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -70,7 +83,12 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
   if (!isRecord(message)) return null;
 
   if (message.type === "GMAPLIST_DATA" && message.data) {
-    return { data: message.data, meta: message.meta, diagnostics: message.diagnostics };
+    return {
+      data: message.data,
+      meta: message.meta,
+      diagnostics: message.diagnostics,
+      capturedAt: typeof message.capturedAt === "number" ? message.capturedAt : undefined,
+    };
   }
 
   if (message.type === "GMAPLIST_EXTENSION_DATA" && isRecord(message.payload) && message.payload.data) {
@@ -78,10 +96,29 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
       data: message.payload.data,
       meta: message.payload.meta,
       diagnostics: message.payload.diagnostics,
+      capturedAt: typeof message.payload.capturedAt === "number" ? message.payload.capturedAt : undefined,
     };
   }
 
   return null;
+}
+
+function loadPersistedSyncAttempt(): PersistedSyncAttempt | null {
+  const raw = readStorage(SYNC_ATTEMPT_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PersistedSyncAttempt>;
+    if ((parsed.status === "in_progress" || parsed.status === "failed") && parsed.list_id && parsed.list_title && parsed.started_at && parsed.updated_at) {
+      return parsed as PersistedSyncAttempt;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function writePersistedSyncAttempt(attempt: PersistedSyncAttempt): void {
+  writeStorage(SYNC_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
 }
 
 function normalizeExtensionLogs(message: unknown): ExtensionLogEntry[] | null {
@@ -115,6 +152,7 @@ export default function App() {
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
   const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning } | null>(null);
   const [syncingListId, setSyncingListId] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<PersistedSyncAttempt | null>(() => loadPersistedSyncAttempt());
   const syncInFlightRef = useRef<string | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() =>
@@ -176,7 +214,7 @@ export default function App() {
         details ? `Details: ${details}` : null,
         hint ? `Hint: ${hint}` : null,
         code ? `Code: ${code}` : null,
-        "If this happened during sync, some earlier chunks may already have written; rerun sync after fixing the error.",
+        "If this happened during sync, rerun sync after fixing the error. The transactional RPC prevents partial list reconciliation writes.",
       ].filter(Boolean).join(" ");
     }
     return err instanceof Error ? `${action} failed. ${err.message}` : `${action} failed. ${String(err)}`;
@@ -223,6 +261,11 @@ export default function App() {
     refreshLists().catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [session]);
 
+  useEffect(() => {
+    if (!session) return;
+    window.postMessage({ type: APP_REQUEST_LATEST_TYPE }, window.location.origin);
+  }, [session]);
+
   const signIn = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -254,15 +297,15 @@ export default function App() {
     await supabase?.auth.signOut();
   };
 
-  const ingestData = useCallback(async (result: ExtractedData) => {
+  const ingestData = useCallback(async (result: ExtractedData): Promise<boolean> => {
     try {
       if (!session) {
         setError("Sign in before syncing. The captured Maps payload was not saved.");
-        return;
+        return false;
       }
       if (syncInFlightRef.current) {
         setError(`A sync for ${syncInFlightRef.current} is already running. Wait for it to finish before opening another Maps list.`);
-        return;
+        return false;
       }
       syncInFlightRef.current = result.list_id;
       setSyncingListId(result.list_id);
@@ -270,13 +313,39 @@ export default function App() {
       if (warning) {
         setPendingSync({ data: result, warning });
         setError(null);
-        return;
+        return false;
       }
+      const attempt: PersistedSyncAttempt = {
+        status: "in_progress",
+        list_id: result.list_id,
+        list_title: result.list_title,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      writePersistedSyncAttempt(attempt);
+      setSyncNotice(attempt);
       const resultSummary = await syncListToSupabase(result);
+      writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
+      setSyncNotice(null);
       setSyncSummary(resultSummary);
       await refreshLists(result.list_id);
+      return true;
     } catch (err) {
-      setError(formatError(err, "Sync"));
+      const message = formatError(err, "Sync");
+      if (result.list_id) {
+        const failedAttempt: PersistedSyncAttempt = {
+          status: "failed",
+          list_id: result.list_id,
+          list_title: result.list_title,
+          started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          message,
+        };
+        writePersistedSyncAttempt(failedAttempt);
+        setSyncNotice(failedAttempt);
+      }
+      setError(message);
+      return false;
     } finally {
       syncInFlightRef.current = null;
       setSyncingListId(null);
@@ -293,12 +362,34 @@ export default function App() {
     syncInFlightRef.current = pendingSync.data.list_id;
     setSyncingListId(pendingSync.data.list_id);
     try {
+      const attempt: PersistedSyncAttempt = {
+        status: "in_progress",
+        list_id: pendingSync.data.list_id,
+        list_title: pendingSync.data.list_title,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      writePersistedSyncAttempt(attempt);
+      setSyncNotice(attempt);
       const resultSummary = await syncListToSupabase(pendingSync.data);
+      writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
+      setSyncNotice(null);
       setSyncSummary(resultSummary);
       await refreshLists(pendingSync.data.list_id);
       setPendingSync(null);
     } catch (err) {
-      setError(formatError(err, "Confirmed sync"));
+      const message = formatError(err, "Confirmed sync");
+      const failedAttempt: PersistedSyncAttempt = {
+        status: "failed",
+        list_id: pendingSync.data.list_id,
+        list_title: pendingSync.data.list_title,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        message,
+      };
+      writePersistedSyncAttempt(failedAttempt);
+      setSyncNotice(failedAttempt);
+      setError(message);
     } finally {
       syncInFlightRef.current = null;
       setSyncingListId(null);
@@ -350,6 +441,8 @@ export default function App() {
 
         const incoming = normalizeIncomingMapsPayload(msg);
         if (!incoming) return;
+        const payloadKey = incoming.capturedAt ? String(incoming.capturedAt) : "";
+        if (payloadKey && readStorage(PROCESSED_PAYLOAD_STORAGE_KEY) === payloadKey) return;
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
@@ -358,7 +451,8 @@ export default function App() {
         worker.onmessage = async (workerEvent) => {
           if (workerEvent.data.action === "PARSE_COMPLETE") {
             try {
-              await ingestData(workerEvent.data.data);
+              const handled = await ingestData(workerEvent.data.data);
+              if (handled && payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, payloadKey);
               pushListUrl(workerEvent.data.data.list_id);
             } finally {
               setIsLoading(false);
@@ -516,6 +610,29 @@ export default function App() {
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+
+        {syncNotice && (
+          <div className="mb-4 rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900 shadow-sm dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100">
+            <p className="font-bold">
+              {syncNotice.status === "in_progress" ? "Previous sync may have been interrupted." : "Previous sync failed."}
+            </p>
+            <p className="mt-1">
+              {syncNotice.list_title} ({syncNotice.list_id}) started at {new Date(syncNotice.started_at).toLocaleString()}.
+              {syncNotice.status === "in_progress"
+                ? " If you closed or reloaded the tab during sync, rerun the sync from the extension/app to confirm the database state."
+                : ` ${syncNotice.message ?? "Rerun sync after fixing the issue."}`}
+            </p>
+            <button
+              onClick={() => {
+                writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
+                setSyncNotice(null);
+              }}
+              className="mt-3 rounded-md border border-sky-400 px-3 py-2 text-xs font-bold text-sky-900 dark:border-sky-600 dark:text-sky-100"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 

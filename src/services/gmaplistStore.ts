@@ -123,14 +123,6 @@ function dedupeClassificationsByFeatureId(rows: ClassificationInput[]): Classifi
   return [...byFeatureId.values()];
 }
 
-function isMissingRpcError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const values = error as Record<string, unknown>;
-  const code = typeof values.code === "string" ? values.code : "";
-  const message = typeof values.message === "string" ? values.message.toLowerCase() : "";
-  return code === "PGRST202" || message.includes("sync_gmaplist") && message.includes("schema cache");
-}
-
 function shouldWarnAboutCount(previousCount: number, incomingCount: number): boolean {
   if (previousCount === 0) return incomingCount > 500;
   const absoluteDelta = Math.abs(incomingCount - previousCount);
@@ -189,74 +181,16 @@ function resolveCategory(
   };
 }
 
-async function syncListInChunks(
-  client: ReturnType<typeof requireSupabase>,
-  data: { list_id: string; list_title: string },
-  places: Place[],
-  placeRows: ReturnType<typeof toPlaceRow>[],
-  now: string,
-  receivedCount: number,
-): Promise<SyncResult> {
-  const { error: listError } = await client.from("lists").upsert({
-    list_id: data.list_id,
-    name: data.list_title,
-    last_synced: now,
-  }, { onConflict: "list_id" });
-  if (listError) throw listError;
-
-  for (const rows of chunk(placeRows)) {
-    const { error } = await client.from("places").upsert(rows, { onConflict: "feature_id" });
-    if (error) throw error;
-  }
-
-  const listItems = places.map((place) => ({
-    list_id: data.list_id,
-    feature_id: place.feature_id!,
-    added_at: place.added_at ?? null,
-    deleted_at: null,
-  }));
-
-  for (const rows of chunk(listItems)) {
-    const { error } = await client.from("list_items").upsert(rows, { onConflict: "list_id,feature_id" });
-    if (error) throw error;
-  }
-
-  const { data: existingItems, error: existingError } = await client
-    .from("list_items")
-    .select("feature_id")
-    .eq("list_id", data.list_id)
-    .is("deleted_at", null);
-  if (existingError) throw existingError;
-
-  const currentIds = new Set(places.map((place) => place.feature_id));
-  const removedIds = (existingItems ?? [])
-    .map((row) => row.feature_id as string)
-    .filter((featureId) => !currentIds.has(featureId));
-
-  for (const ids of chunk(removedIds)) {
-    const { error } = await client
-      .from("list_items")
-      .update({ deleted_at: now })
-      .eq("list_id", data.list_id)
-      .in("feature_id", ids);
-    if (error) throw error;
-  }
-
-  return {
-    received_count: receivedCount,
-    unique_count: places.length,
-    removed_count: removedIds.length,
-  };
-}
-
 async function syncListWithRpc(
   client: ReturnType<typeof requireSupabase>,
   data: { list_id: string; list_title: string },
   places: Place[],
   placeRows: ReturnType<typeof toPlaceRow>[],
   receivedCount: number,
-): Promise<SyncResult | null> {
-  if (typeof client.rpc !== "function") return null;
+): Promise<SyncResult> {
+  if (typeof client.rpc !== "function") {
+    throw new Error("Transactional sync RPC is unavailable. Reload the deployed app; do not use chunked fallback sync.");
+  }
 
   const rpcPlaces = placeRows.map((row, index) => ({
     feature_id: row.feature_id,
@@ -283,24 +217,18 @@ async function syncListWithRpc(
       removed_count: Number(first?.removed_count ?? 0),
     };
   }
-  if (isMissingRpcError(error)) return null;
   throw error;
 }
 
 export async function syncListToSupabase(data: { list_id: string; list_title: string; places: Place[] }): Promise<SyncResult> {
   await requireSignedInUserId();
   const client = requireSupabase();
-  const now = new Date().toISOString();
   assertAllPlacesHaveFeatureIds(data.places);
   const receivedPlaceRows = data.places.map(toPlaceRow);
   assertPlaceRecordsContainNoContributorData(receivedPlaceRows);
   const places = dedupePlacesByFeatureId(data.places);
 
-  const placeRows = places.map(toPlaceRow);
-  assertPlaceRecordsContainNoContributorData(placeRows);
-
-  const syncResult = await syncListWithRpc(client, data, data.places, receivedPlaceRows, data.places.length)
-    ?? await syncListInChunks(client, data, places, placeRows, now, data.places.length);
+  const syncResult = await syncListWithRpc(client, data, data.places, receivedPlaceRows, data.places.length);
 
   const seedClassifications = places
     .map((place) => {
@@ -313,7 +241,7 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
       category: tag.category,
       confidence: tag.confidence,
       reason: tag.reason,
-      classified_at: now,
+      classified_at: new Date().toISOString(),
     }));
 
   for (const rows of chunk(seedClassifications)) {

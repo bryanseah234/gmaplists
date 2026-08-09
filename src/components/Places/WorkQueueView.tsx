@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Clipboard, ExternalLink, Filter, Loader2, Save, Search } from "lucide-react";
 import { COLUMNS, ListSummary, Place } from "../../types";
 import {
@@ -28,6 +28,7 @@ const BATCH_SIZE = 18;
 type QueueUiState = {
   categoryFilter: string;
   query: string;
+  currentFeatureId?: string;
 };
 
 function queueStorageKey(listId: string): string {
@@ -41,13 +42,19 @@ function loadQueueState(listId: string): QueueUiState {
     const parsed = JSON.parse(raw) as Partial<QueueUiState>;
     const categoryFilter = typeof parsed.categoryFilter === "string" ? parsed.categoryFilter : "All";
     const query = typeof parsed.query === "string" ? parsed.query : "";
+    const currentFeatureId = typeof parsed.currentFeatureId === "string" ? parsed.currentFeatureId : undefined;
     return {
       categoryFilter: categoryFilter === "All" || CATEGORY_LABELS.has(categoryFilter) ? categoryFilter : "All",
       query,
+      currentFeatureId,
     };
   } catch {
     return { categoryFilter: "All", query: "" };
   }
+}
+
+function placeElementId(featureId: string): string {
+  return `place-${featureId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function mapsLink(place: Place): string {
@@ -59,12 +66,6 @@ function mapsLink(place: Place): string {
 function formatDate(value: string | null): string {
   if (!value) return "Never synced";
   return new Date(value).toLocaleString();
-}
-
-function contextLine(place: Place): string {
-  return [place.place_label, place.address, place.user_notes ? `Note: ${place.user_notes}` : null]
-    .filter(Boolean)
-    .join(" · ");
 }
 
 function detailLine(place: Place): string {
@@ -119,6 +120,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [rowBusy, setRowBusy] = useState<Record<string, string>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const lastScrolledFeatureId = useRef<string | null>(null);
   const { categoryFilter, query } = queueState;
 
   useEffect(() => {
@@ -166,9 +168,24 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   const hasVisibleWork = visiblePlaces.length > 0;
   const shownNow = CATEGORY_ORDER.reduce((total, category) => total + Math.min(grouped[category].length, BATCH_SIZE), 0);
 
+  useEffect(() => {
+    const featureId = queueState.currentFeatureId;
+    if (!featureId || lastScrolledFeatureId.current === featureId) return;
+    if (!visiblePlaces.some((place) => place.feature_id === featureId)) return;
+    window.setTimeout(() => {
+      document.getElementById(placeElementId(featureId))?.scrollIntoView({ block: "center" });
+      lastScrolledFeatureId.current = featureId;
+    }, 80);
+  }, [queueState.currentFeatureId, visiblePlaces]);
+
   function updateQueueState(next: QueueUiState) {
     setQueueState(next);
     writeStorage(queueStorageKey(selectedListId), JSON.stringify(next));
+  }
+
+  function markCurrentPlace(featureId?: string) {
+    if (!featureId) return;
+    updateQueueState({ ...queueState, currentFeatureId: featureId });
   }
 
   async function runRowAction(featureId: string | undefined, label: string, action: (id: string) => Promise<void>) {
@@ -398,10 +415,18 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
                 const isRowBusy = Boolean(featureId && rowBusy[featureId]);
                 const rowError = featureId ? rowErrors[featureId] : rowErrors.missing;
                 return (
-                <article key={featureId ?? place.place_name} className="grid min-h-52 content-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+                <article
+                  key={featureId ?? place.place_name}
+                  id={featureId ? placeElementId(featureId) : undefined}
+                  className={`grid min-h-52 content-between gap-2 rounded-lg border p-3 ${
+                    featureId && queueState.currentFeatureId === featureId
+                      ? "border-blue-400 bg-blue-50 shadow-sm dark:border-blue-600 dark:bg-blue-950/30"
+                      : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950"
+                  }`}
+                >
                   <div className="grid gap-2">
                     <div className="flex items-start justify-between gap-2">
-                      <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="min-w-0 text-base font-black leading-tight text-zinc-950 underline-offset-2 hover:underline dark:text-white">
+                      <a onClick={() => markCurrentPlace(featureId)} href={mapsLink(place)} target="_blank" rel="noreferrer" className="min-w-0 text-base font-black leading-tight text-zinc-950 underline-offset-2 hover:underline dark:text-white">
                         {place.place_name || "Unnamed place"}
                       </a>
                       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${categoryClass(category)}`}>
@@ -427,7 +452,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
                   </div>
                   <div className="grid gap-2">
                     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-black text-white shadow-sm" title="Open in Google Maps">
+                      <a onClick={() => markCurrentPlace(featureId)} href={mapsLink(place)} target="_blank" rel="noreferrer" className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-black text-white shadow-sm" title="Open in Google Maps">
                         <ExternalLink size={16} />
                         Open Maps
                       </a>

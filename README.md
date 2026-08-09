@@ -74,10 +74,15 @@ For unclassified places, use the queue's prompt button. It copies the category d
 2. Keep the deployed gmaplists tab open.
 3. Open the Chrome extension popup.
 4. Paste one Google Maps saved-list URL.
-5. The extension opens Maps and captures `/maps/preview/entitylist/getlist`.
-6. The app strips contributor data, parses places, upserts `lists`, `places`, and `list_items`, and reconciles only that one list.
+5. The extension opens Maps and records a short-lived capture intent for that tab and list.
+6. The extension captures `/maps/preview/entitylist/getlist` only when it matches that intent, then strips contributor data before storage or broadcast.
+7. The app parses places, dedupes by `feature_id`, calls the transactional `sync_gmaplist` RPC, and reconciles only that one list.
 
 If you sync while signed out, the app shows an error and does not write the captured payload to Supabase.
+
+After a sync, the app shows how many rows were received, how many unique `feature_id` values were written, and how many list items were marked removed. If received and unique differ, the duplicate count is shown instead of hidden.
+
+Production sync is RPC-only. There is no chunked fallback path, because partial chunks cannot guarantee correct list reconciliation if the browser tab closes mid-sync.
 
 ## Mobile Queue Workflow
 
@@ -89,6 +94,8 @@ If you sync while signed out, the app shows an error and does not write the capt
 6. Return to gmaplists and tap Done.
 
 Progress is per list. If the same place appears in another country list, its category is reused, but its done state is separate.
+
+The queue remembers the current list, category filter, search text, and last opened place. Returning from Google Maps or reloading the app should keep the same work position and highlight the last opened place.
 
 ## Auth And RLS
 

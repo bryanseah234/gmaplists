@@ -32,11 +32,15 @@ function getDiagnosticSummary(diagnostics: unknown): string | null {
   const page = typeof values.page === 'number' ? values.page : undefined;
   const fetched = typeof values.fetched === 'number' ? values.fetched : undefined;
   const metaCount = typeof values.metaCount === 'number' ? values.metaCount : undefined;
+  const uniqueFeatureIdCount = typeof values.uniqueFeatureIdCount === 'number' ? values.uniqueFeatureIdCount : undefined;
+  const duplicateFeatureIdCount = typeof values.duplicateFeatureIdCount === 'number' ? values.duplicateFeatureIdCount : undefined;
 
   return [
     page != null ? `page ${page}` : null,
     fetched != null ? `${fetched} fetched` : null,
     placeCount != null ? `${placeCount} places` : null,
+    uniqueFeatureIdCount != null ? `${uniqueFeatureIdCount} unique` : null,
+    duplicateFeatureIdCount != null && duplicateFeatureIdCount > 0 ? `${duplicateFeatureIdCount} duplicates` : null,
     total != null && total !== placeCount ? `${total} total` : null,
     metaCount != null && metaCount !== placeCount ? `${metaCount} links` : null,
   ].filter(Boolean).join(' · ') || null;

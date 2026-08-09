@@ -44,6 +44,8 @@ function getDiagnosticSummary(diagnostics) {
   if (typeof diagnostics.page === "number") parts.push(`page ${diagnostics.page}`);
   if (typeof diagnostics.fetched === "number") parts.push(`${diagnostics.fetched} fetched`);
   if (typeof diagnostics.placeCount === "number") parts.push(`${diagnostics.placeCount} places`);
+  if (typeof diagnostics.uniqueFeatureIdCount === "number") parts.push(`${diagnostics.uniqueFeatureIdCount} unique`);
+  if (typeof diagnostics.duplicateFeatureIdCount === "number" && diagnostics.duplicateFeatureIdCount > 0) parts.push(`${diagnostics.duplicateFeatureIdCount} duplicates`);
   if (typeof diagnostics.total === "number") parts.push(`${diagnostics.total} total`);
   if (typeof diagnostics.pbLength === "number") parts.push(`pb ${diagnostics.pbLength}`);
   if (typeof diagnostics.listId === "string") parts.push(`list ${diagnostics.listId.slice(0, 8)}...`);
