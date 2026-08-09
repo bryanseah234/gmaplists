@@ -330,24 +330,48 @@ export async function getSyncCountWarning(data: { list_id: string; list_title: s
 export async function loadListSummaries(): Promise<ListSummary[]> {
   await requireSignedInUserId();
   const client = requireSupabase();
-  const [{ data: lists, error: listsError }, { data: items, error: itemsError }, { data: progress, error: progressError }, { data: classifications, error: classError }] = await Promise.all([
+  const [
+    { data: lists, error: listsError },
+    { data: items, error: itemsError },
+    { data: progress, error: progressError },
+    { data: classifications, error: classError },
+    { data: overrides, error: overridesError },
+  ] = await Promise.all([
     client.from("lists").select("list_id,name,last_synced").order("last_synced", { ascending: false }),
     client.from("list_items").select("list_id,feature_id,deleted_at").is("deleted_at", null),
     client.from("progress").select("list_id,feature_id,done"),
     client.from("classifications").select("feature_id,category"),
+    client.from("overrides").select("feature_id,category"),
   ]);
   if (listsError) throw listsError;
   if (itemsError) throw itemsError;
   if (progressError) throw progressError;
   if (classError) throw classError;
+  if (overridesError) throw overridesError;
 
   const classified = new Set((classifications ?? []).map((row) => row.feature_id as string));
+  const overridden = new Set((overrides ?? []).map((row) => row.feature_id as string));
   const done = new Set((progress ?? []).filter((row) => row.done).map((row) => `${row.list_id}:${row.feature_id}`));
+  const activeFeatureIds = [...new Set((items ?? []).map((item) => item.feature_id as string))];
+  const places = activeFeatureIds.length > 0
+    ? await selectByIds<any>("places", activeFeatureIds, "feature_id,name,place_label,address,note")
+    : [];
+  const ruleClassified = new Set(places
+    .filter((row) => classifyPlaceByRules({
+      displayName: row.name,
+      placeLabel: row.place_label ?? undefined,
+      address: row.address ?? undefined,
+      userNote: row.note ?? undefined,
+    }).category !== "Unsorted")
+    .map((row) => row.feature_id as string));
 
   return (lists ?? []).map((list) => {
     const listItems = (items ?? []).filter((item) => item.list_id === list.list_id);
     const doneCount = listItems.filter((item) => done.has(`${item.list_id}:${item.feature_id}`)).length;
-    const unclassifiedCount = listItems.filter((item) => !classified.has(item.feature_id as string)).length;
+    const unclassifiedCount = listItems.filter((item) => {
+      const featureId = item.feature_id as string;
+      return !classified.has(featureId) && !overridden.has(featureId) && !ruleClassified.has(featureId);
+    }).length;
     return {
       list_id: list.list_id as string,
       name: list.name as string,
