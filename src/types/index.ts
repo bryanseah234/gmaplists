@@ -31,7 +31,7 @@ export interface Place {
   done_at?: string;
   resolved_reason?: string;
   resolved_confidence?: "high" | "medium" | "low";
-  /** True when user has manually dragged this card to a different column */
+  /** True when the displayed category comes from a manual correction */
   is_override: boolean;
 }
 

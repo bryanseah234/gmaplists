@@ -132,7 +132,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
               <div className="min-w-0">
                 <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">GMapList</h1>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                  Extract a Google Maps list, sort places into practical groups, then copy phone-ready links for mobile tagging.
+                  Sync one Google Maps list, review suggested categories, then open each place for mobile tagging.
                 </p>
               </div>
             </div>
