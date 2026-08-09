@@ -46,6 +46,8 @@ begin
     set name = excluded.name,
         last_synced = excluded.last_synced;
 
+  drop table if exists pg_temp.temp_sync_places;
+
   create temporary table temp_sync_places (
     feature_id text primary key,
     name text not null,
@@ -57,7 +59,7 @@ begin
     added_at bigint
   ) on commit drop;
 
-  insert into temp_sync_places (feature_id, name, place_label, address, lat, lng, note, added_at)
+  insert into pg_temp.temp_sync_places (feature_id, name, place_label, address, lat, lng, note, added_at)
   select distinct on (feature_id)
     feature_id,
     coalesce(nullif(name, ''), 'Unnamed place') as name,
@@ -83,11 +85,11 @@ begin
   where feature_id is not null and feature_id <> ''
   order by feature_id, ordinality desc;
 
-  select count(*) into v_unique_count from temp_sync_places;
+  select count(*) into v_unique_count from pg_temp.temp_sync_places;
 
   insert into public.places (feature_id, name, place_label, address, lat, lng, note, last_synced)
   select feature_id, name, place_label, address, lat, lng, note, v_now
-  from temp_sync_places
+  from pg_temp.temp_sync_places
   on conflict (feature_id) do update
     set name = excluded.name,
         place_label = excluded.place_label,
@@ -99,7 +101,7 @@ begin
 
   insert into public.list_items (list_id, feature_id, added_at, deleted_at)
   select p_list_id, feature_id, added_at, null
-  from temp_sync_places
+  from pg_temp.temp_sync_places
   on conflict (list_id, feature_id) do update
     set added_at = excluded.added_at,
         deleted_at = null;
@@ -110,7 +112,7 @@ begin
     and existing.deleted_at is null
     and not exists (
       select 1
-      from temp_sync_places incoming
+      from pg_temp.temp_sync_places incoming
       where incoming.feature_id = existing.feature_id
     );
 
