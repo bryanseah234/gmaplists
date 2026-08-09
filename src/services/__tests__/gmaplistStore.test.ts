@@ -469,6 +469,37 @@ describe("gmaplistStore resync behavior", () => {
     }));
   });
 
+  it("does not overwrite existing classifications or insert rows for manual overrides when saving stale proposals", async () => {
+    const { saveCategoryOverride, saveClassifications } = await import("../gmaplistStore");
+
+    mockDb.tables.classifications.push({
+      feature_id: "feature-existing",
+      category: "Food",
+      confidence: "high",
+      reason: "Existing decision.",
+      classified_at: "2026-01-01T00:00:00.000Z",
+    });
+    await saveCategoryOverride("feature-override", "Shop");
+
+    await saveClassifications([
+      { feature_id: "feature-existing", category: "Drink", confidence: "high", reason: "Stale overwrite attempt." },
+      { feature_id: "feature-override", category: "Drink", confidence: "high", reason: "Stale override attempt." },
+      { feature_id: "feature-new", category: "See", confidence: "medium", reason: "New decision." },
+    ]);
+
+    expect(mockDb.tables.classifications).toContainEqual(expect.objectContaining({
+      feature_id: "feature-existing",
+      category: "Food",
+      reason: "Existing decision.",
+    }));
+    expect(mockDb.tables.classifications.find((row) => row.feature_id === "feature-override")).toBeUndefined();
+    expect(mockDb.tables.classifications).toContainEqual(expect.objectContaining({
+      feature_id: "feature-new",
+      category: "See",
+      reason: "New decision.",
+    }));
+  });
+
   it("throws on classification JSON with the wrong top-level shape", async () => {
     const { previewClassificationImport } = await import("../gmaplistStore");
 

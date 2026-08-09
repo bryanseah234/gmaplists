@@ -512,7 +512,19 @@ export async function saveClassifications(rows: ClassificationInput[]): Promise<
   await requireSignedInUserId();
   const client = requireSupabase();
   const now = new Date().toISOString();
-  for (const batch of chunk(dedupeClassificationsByFeatureId(rows))) {
+  const dedupedRows = dedupeClassificationsByFeatureId(rows);
+  const ids = dedupedRows.map((row) => row.feature_id);
+  const [existingClassifications, existingOverrides] = await Promise.all([
+    selectByIds<DbClassification>("classifications", ids, "feature_id"),
+    selectByIds<DbOverride>("overrides", ids, "feature_id"),
+  ]);
+  const blockedIds = new Set([
+    ...existingClassifications.map((row) => row.feature_id),
+    ...existingOverrides.map((row) => row.feature_id),
+  ]);
+  const rowsToSave = dedupedRows.filter((row) => !blockedIds.has(row.feature_id));
+
+  for (const batch of chunk(rowsToSave)) {
     const { error } = await client.from("classifications").upsert(batch.map((row) => ({
       ...row,
       classified_at: now,
