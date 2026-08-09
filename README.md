@@ -97,11 +97,11 @@ Auth is Supabase email magic link, no Google OAuth. The client uses `VITE_SUPABA
 The anon key is safe to ship only with the included RLS policies:
 
 - unauthenticated `anon` receives no table policies;
-- authenticated users can read shared list/place/classification cache rows;
+- authenticated users can read and write shared list/place/classification cache rows;
 - overrides and progress are readable/writable only where `user_id = auth.uid()`;
 - update policies include both `USING` and `WITH CHECK`.
 
-For single-user operation, create only your own Supabase Auth user. The app calls magic-link sign-in with `shouldCreateUser: false`.
+For single-user operation, create only your own Supabase Auth user and keep public signups disabled in Supabase. The app calls magic-link sign-in with `shouldCreateUser: false`, but that is only a client guard. Data protection for `lists`, `places`, `list_items`, and `classifications` depends on preventing other users from authenticating, because those shared-fact tables are intentionally open to any authenticated user.
 
 ## Environment
 
