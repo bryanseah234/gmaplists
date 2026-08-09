@@ -93,6 +93,7 @@ export default function App() {
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [authResolved, setAuthResolved] = useState(!supabase);
   const [email, setEmail] = useState("");
   const [authCooldown, setAuthCooldown] = useState(0);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
@@ -138,17 +139,24 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data: authData }) => setSession(authData.session));
+    supabase.auth
+      .getSession()
+      .then(({ data: authData }) => setSession(authData.session))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setAuthResolved(true));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      setAuthResolved(true);
       if (!nextSession) {
         setLists([]);
         setPlaces([]);
         setData(null);
         setSelectedListId("");
+        setNewPlacesCount(0);
         setIsLoading(false);
         setIsReceiving(false);
         setExtensionStatus(null);
+        setAuthMessage(null);
       }
     });
 
@@ -374,7 +382,13 @@ export default function App() {
           </div>
         )}
 
-        {session && selectedListId ? (
+        {!authResolved ? (
+          <div className="flex min-h-[calc(100vh-80px)] items-center justify-center py-8">
+            <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              Checking session...
+            </div>
+          </div>
+        ) : session && selectedListId ? (
           <WorkQueueView
             lists={lists}
             selectedListId={selectedListId}
@@ -385,13 +399,17 @@ export default function App() {
             onRefresh={() => refreshLists(selectedListId)}
           />
         ) : !session ? (
-          <div className="flex min-h-[calc(100vh-80px)] items-start justify-center pt-16">
-            <form onSubmit={signIn} className="grid w-full max-w-sm gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex min-h-[calc(100vh-80px)] items-center justify-center py-8">
+            <form onSubmit={signIn} className="grid w-full max-w-md gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <div>
                 <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to gmaplist</h1>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Email magic link only. Sync is disabled while signed out.</p>
               </div>
+              <label htmlFor="email" className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                Email
+              </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}

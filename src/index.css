@@ -20,15 +20,13 @@ html {
 }
 
 input,
-textarea,
-select {
+textarea {
   color: #18181b;
   caret-color: #18181b;
 }
 
 html.dark input,
-html.dark textarea,
-html.dark select {
+html.dark textarea {
   color: #f4f4f5;
   caret-color: #f4f4f5;
 }
@@ -81,4 +79,14 @@ html.dark input:-webkit-autofill:hover,
 html.dark input:-webkit-autofill:focus,
 html.dark input:-webkit-autofill:active {
   -webkit-text-fill-color: #f4f4f5;
+}
+
+select option {
+  background-color: #fff;
+  color: #18181b;
+}
+
+html.dark select option {
+  background-color: #18181b;
+  color: #f4f4f5;
 }
