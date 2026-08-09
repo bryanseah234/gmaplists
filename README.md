@@ -58,6 +58,8 @@ The category source order is:
 3. Deterministic local rules.
 4. `Unsorted`.
 
+`src/data/tags.json` is a bundled seed for the Malaysia list captured during development. On sync, matching entries are inserted into `classifications` only when that `feature_id` has no existing classification. The upsert uses duplicate-ignore semantics, so `tags.json` is not a live category layer after the first seed. Editing `tags.json` later will not overwrite classifications already stored in Supabase; delete or update the Supabase row explicitly if a stored classification needs to change.
+
 For unclassified places, use the queue's prompt button. It copies the category definitions plus place name, place label, address, note, and feature ID. Paste that prompt into an LLM yourself, then paste the returned JSON back into gmaplist. The app validates:
 
 - JSON arrays and markdown code fences.
