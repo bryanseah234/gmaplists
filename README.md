@@ -131,3 +131,8 @@ This is a Vite SPA and is configured for Vercel in `vercel.json`. Set the two Su
 - local development origins
 
 That means the extension bridge works against the deployed origin, not just localhost.
+
+The PWA service worker is intentionally update-aggressive: Vercel serves `/sw.js`
+and `/index.html` with `Cache-Control: no-cache, no-store, must-revalidate`, the
+worker activates immediately, and the page reloads once when a new worker takes
+control. This avoids a phone continuing to run a stale bundle after deployment.
