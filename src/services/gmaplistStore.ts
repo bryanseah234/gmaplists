@@ -117,6 +117,14 @@ function dedupeClassificationsByFeatureId(rows: ClassificationInput[]): Classifi
   return [...byFeatureId.values()];
 }
 
+function isMissingRpcError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const values = error as Record<string, unknown>;
+  const code = typeof values.code === "string" ? values.code : "";
+  const message = typeof values.message === "string" ? values.message.toLowerCase() : "";
+  return code === "PGRST202" || message.includes("sync_gmaplist") && message.includes("schema cache");
+}
+
 function shouldWarnAboutCount(previousCount: number, incomingCount: number): boolean {
   if (previousCount === 0) return incomingCount > 500;
   const absoluteDelta = Math.abs(incomingCount - previousCount);
@@ -175,16 +183,13 @@ function resolveCategory(
   };
 }
 
-export async function syncListToSupabase(data: { list_id: string; list_title: string; places: Place[] }): Promise<void> {
-  await requireSignedInUserId();
-  const client = requireSupabase();
-  const now = new Date().toISOString();
-  assertAllPlacesHaveFeatureIds(data.places);
-  const places = dedupePlacesByFeatureId(data.places);
-
-  const placeRows = places.map(toPlaceRow);
-  assertPlaceRecordsContainNoContributorData(placeRows);
-
+async function syncListInChunks(
+  client: ReturnType<typeof requireSupabase>,
+  data: { list_id: string; list_title: string },
+  places: Place[],
+  placeRows: ReturnType<typeof toPlaceRow>[],
+  now: string,
+): Promise<void> {
   const { error: listError } = await client.from("lists").upsert({
     list_id: data.list_id,
     name: data.list_title,
@@ -229,6 +234,50 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
       .in("feature_id", ids);
     if (error) throw error;
   }
+}
+
+async function syncListWithRpc(
+  client: ReturnType<typeof requireSupabase>,
+  data: { list_id: string; list_title: string },
+  places: Place[],
+  placeRows: ReturnType<typeof toPlaceRow>[],
+): Promise<boolean> {
+  if (typeof client.rpc !== "function") return false;
+
+  const rpcPlaces = placeRows.map((row, index) => ({
+    feature_id: row.feature_id,
+    name: row.name,
+    place_label: row.place_label,
+    address: row.address,
+    lat: row.lat,
+    lng: row.lng,
+    note: row.note,
+    added_at: places[index].added_at ?? null,
+  }));
+
+  const { error } = await client.rpc("sync_gmaplist", {
+    p_list_id: data.list_id,
+    p_list_name: data.list_title,
+    p_places: rpcPlaces,
+  });
+
+  if (!error) return true;
+  if (isMissingRpcError(error)) return false;
+  throw error;
+}
+
+export async function syncListToSupabase(data: { list_id: string; list_title: string; places: Place[] }): Promise<void> {
+  await requireSignedInUserId();
+  const client = requireSupabase();
+  const now = new Date().toISOString();
+  assertAllPlacesHaveFeatureIds(data.places);
+  const places = dedupePlacesByFeatureId(data.places);
+
+  const placeRows = places.map(toPlaceRow);
+  assertPlaceRecordsContainNoContributorData(placeRows);
+
+  const syncedByRpc = await syncListWithRpc(client, data, places, placeRows);
+  if (!syncedByRpc) await syncListInChunks(client, data, places, placeRows, now);
 
   const seedClassifications = places
     .map((place) => {

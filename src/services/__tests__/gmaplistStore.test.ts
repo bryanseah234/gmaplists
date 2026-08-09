@@ -4,6 +4,7 @@ import { Place } from "../../types";
 type Row = Record<string, any>;
 
 const mockDb = vi.hoisted(() => ({
+  rpcCalls: [] as Array<{ name: string; args: Row }>,
   tables: {
     lists: [] as Row[],
     places: [] as Row[],
@@ -24,6 +25,13 @@ function createClient() {
       getUser: async () => ({ data: { user: { id: "user-1" } }, error: null }),
     },
     from: (table: keyof typeof mockDb.tables) => new Query(table),
+    rpc: async (name: string, args: Row) => {
+      mockDb.rpcCalls.push({ name, args });
+      if (name !== "sync_gmaplist") {
+        return { data: null, error: { code: "PGRST202", message: `Could not find function ${name} in schema cache` } };
+      }
+      return { data: [syncGmaplist(args)], error: null };
+    },
   };
 }
 
@@ -99,6 +107,61 @@ function primaryKeyFor(table: keyof typeof mockDb.tables) {
   return "feature_id";
 }
 
+function upsertRow(tableName: keyof typeof mockDb.tables, row: Row, keys: string[]) {
+  const table = mockDb.tables[tableName];
+  const index = table.findIndex((existing) => keys.every((key) => existing[key] === row[key]));
+  if (index >= 0) table[index] = { ...table[index], ...row };
+  else table.push({ ...row });
+}
+
+function syncGmaplist(args: Row) {
+  const now = new Date().toISOString();
+  const incoming = Array.isArray(args.p_places) ? args.p_places : [];
+  const byFeatureId = new Map<string, Row>();
+  for (const row of incoming) byFeatureId.set(row.feature_id, row);
+  const places = [...byFeatureId.values()];
+
+  upsertRow("lists", {
+    list_id: args.p_list_id,
+    name: args.p_list_name,
+    last_synced: now,
+  }, ["list_id"]);
+
+  for (const row of places) {
+    upsertRow("places", {
+      feature_id: row.feature_id,
+      name: row.name,
+      place_label: row.place_label,
+      address: row.address,
+      lat: row.lat,
+      lng: row.lng,
+      note: row.note,
+      last_synced: now,
+    }, ["feature_id"]);
+    upsertRow("list_items", {
+      list_id: args.p_list_id,
+      feature_id: row.feature_id,
+      added_at: row.added_at,
+      deleted_at: null,
+    }, ["list_id", "feature_id"]);
+  }
+
+  const activeIds = new Set(places.map((row) => row.feature_id));
+  let removedCount = 0;
+  for (const item of mockDb.tables.list_items) {
+    if (item.list_id === args.p_list_id && item.deleted_at === null && !activeIds.has(item.feature_id)) {
+      item.deleted_at = now;
+      removedCount += 1;
+    }
+  }
+
+  return {
+    place_count: incoming.length,
+    unique_count: places.length,
+    removed_count: removedCount,
+  };
+}
+
 function place(featureId: string, name: string): Place {
   return {
     feature_id: featureId,
@@ -115,6 +178,7 @@ function place(featureId: string, name: string): Place {
 
 describe("gmaplistStore resync behavior", () => {
   beforeEach(() => {
+    mockDb.rpcCalls.length = 0;
     for (const table of Object.values(mockDb.tables)) table.length = 0;
   });
 
@@ -239,6 +303,9 @@ describe("gmaplistStore resync behavior", () => {
         place_name: "New Name",
       }),
     ]));
+    expect(mockDb.rpcCalls).toContainEqual(expect.objectContaining({
+      name: "sync_gmaplist",
+    }));
   });
 
   it("refuses to sync any payload with places missing feature ids before writing", async () => {
