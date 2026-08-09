@@ -10,6 +10,8 @@ import {
 
 interface InputSectionProps {
   isReceiving: boolean;
+  appVersion: string;
+  expectedExtensionVersion: string;
   extensionStatus?: {
     status: string;
     message?: string;
@@ -74,6 +76,8 @@ function getStatusTone(status?: string) {
 
 export const InputSection: React.FC<InputSectionProps> = ({
   isReceiving,
+  appVersion,
+  expectedExtensionVersion,
   extensionStatus,
 }) => {
   const [mapsUrl, setMapsUrl] = useState('');
@@ -82,6 +86,11 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
   const statusTone = getStatusTone(extensionStatus?.status);
   const isLoadingStatus = extensionStatus?.status === 'loading' || isReceiving;
+  const diagnostics = extensionStatus?.diagnostics && typeof extensionStatus.diagnostics === 'object' && !Array.isArray(extensionStatus.diagnostics)
+    ? extensionStatus.diagnostics as Record<string, unknown>
+    : {};
+  const extensionVersion = typeof diagnostics.extensionVersion === 'string' ? diagnostics.extensionVersion : null;
+  const hasVersionMismatch = Boolean(extensionVersion && extensionVersion !== expectedExtensionVersion);
 
   const openMapsUrl = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -170,6 +179,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 <p className="mt-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   {getDiagnosticSummary(extensionStatus?.diagnostics) ?? (isLoadingStatus ? 'Waiting for Maps data...' : 'No capture yet')}
                 </p>
+                <p className="mt-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  App {appVersion} · Extension {extensionVersion ?? 'unknown'}
+                </p>
+                {hasVersionMismatch && (
+                  <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                    Extension version mismatch. Reload the unpacked extension and this page.
+                  </p>
+                )}
               </div>
             </div>
           </div>

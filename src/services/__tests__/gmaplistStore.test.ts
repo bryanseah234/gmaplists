@@ -212,4 +212,56 @@ describe("gmaplistStore resync behavior", () => {
       }),
     ]);
   });
+
+  it("dedupes repeated feature ids before sync upserts and keeps the last occurrence", async () => {
+    const { syncListToSupabase, loadPlacesForList } = await import("../gmaplistStore");
+
+    await syncListToSupabase({
+      list_id: "list-malaysia",
+      list_title: "Malaysia spots",
+      places: [
+        place("feature-a", "Old Name"),
+        place("feature-b", "Other Place"),
+        { ...place("feature-a", "New Name"), address: "Latest Address" },
+      ],
+    });
+
+    expect(mockDb.tables.places.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
+    expect(mockDb.tables.list_items.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
+    expect(mockDb.tables.places).toContainEqual(expect.objectContaining({
+      feature_id: "feature-a",
+      name: "New Name",
+      address: "Latest Address",
+    }));
+    expect(await loadPlacesForList("list-malaysia")).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        feature_id: "feature-a",
+        place_name: "New Name",
+      }),
+    ]));
+  });
+
+  it("warns before writing when incoming count differs sharply from the active list count", async () => {
+    const { getSyncCountWarning, syncListToSupabase } = await import("../gmaplistStore");
+    const list = { list_id: "list-malaysia", list_title: "Malaysia spots" };
+
+    await syncListToSupabase({
+      ...list,
+      places: Array.from({ length: 100 }, (_, index) => place(`feature-${index}`, `Place ${index}`)),
+    });
+
+    const warning = await getSyncCountWarning({
+      ...list,
+      places: Array.from({ length: 140 }, (_, index) => place(`next-${index}`, `Next ${index}`)),
+    });
+
+    expect(warning).toEqual(expect.objectContaining({
+      list_id: "list-malaysia",
+      previous_count: 100,
+      incoming_count: 140,
+      incoming_unique_count: 140,
+      duplicate_count: 0,
+      percent_change: 40,
+    }));
+  });
 });

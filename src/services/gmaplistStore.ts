@@ -41,6 +41,16 @@ export type ClassificationPreview = {
   rejected: Array<{ feature_id?: string; reason: string }>;
 };
 
+export type SyncCountWarning = {
+  list_id: string;
+  list_title: string;
+  previous_count: number;
+  incoming_count: number;
+  incoming_unique_count: number;
+  duplicate_count: number;
+  percent_change: number;
+};
+
 const staticTags = bundledTags as unknown as Record<string, StaticTagValue>;
 
 function chunk<T>(items: T[], size = BATCH_SIZE): T[][] {
@@ -80,6 +90,28 @@ function toPlaceRow(place: Place) {
     note: place.user_notes ?? null,
     last_synced: new Date().toISOString(),
   };
+}
+
+function dedupePlacesByFeatureId(places: Place[]): Place[] {
+  const byFeatureId = new Map<string, Place>();
+  for (const place of places) {
+    if (!place.feature_id) continue;
+    byFeatureId.set(place.feature_id, place);
+  }
+  return [...byFeatureId.values()];
+}
+
+function dedupeClassificationsByFeatureId(rows: ClassificationInput[]): ClassificationInput[] {
+  const byFeatureId = new Map<string, ClassificationInput>();
+  for (const row of rows) byFeatureId.set(row.feature_id, row);
+  return [...byFeatureId.values()];
+}
+
+function shouldWarnAboutCount(previousCount: number, incomingCount: number): boolean {
+  if (previousCount === 0) return false;
+  const absoluteDelta = Math.abs(incomingCount - previousCount);
+  const percentChange = absoluteDelta / previousCount;
+  return absoluteDelta >= 25 && percentChange >= 0.25;
 }
 
 function resolveCategory(
@@ -137,7 +169,7 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
   await requireSignedInUserId();
   const client = requireSupabase();
   const now = new Date().toISOString();
-  const places = data.places.filter((place) => place.feature_id);
+  const places = dedupePlacesByFeatureId(data.places);
 
   const placeRows = places.map(toPlaceRow);
   assertPlaceRecordsContainNoContributorData(placeRows);
@@ -205,6 +237,32 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
     const { error } = await client.from("classifications").upsert(rows, { onConflict: "feature_id", ignoreDuplicates: true });
     if (error) throw error;
   }
+}
+
+export async function getSyncCountWarning(data: { list_id: string; list_title: string; places: Place[] }): Promise<SyncCountWarning | null> {
+  await requireSignedInUserId();
+  const client = requireSupabase();
+  const { data: existingItems, error } = await client
+    .from("list_items")
+    .select("feature_id")
+    .eq("list_id", data.list_id)
+    .is("deleted_at", null);
+  if (error) throw error;
+
+  const incomingPlaces = data.places.filter((place) => place.feature_id);
+  const incomingUniqueCount = dedupePlacesByFeatureId(data.places).length;
+  const previousCount = existingItems?.length ?? 0;
+  if (!shouldWarnAboutCount(previousCount, incomingPlaces.length)) return null;
+
+  return {
+    list_id: data.list_id,
+    list_title: data.list_title,
+    previous_count: previousCount,
+    incoming_count: incomingPlaces.length,
+    incoming_unique_count: incomingUniqueCount,
+    duplicate_count: incomingPlaces.length - incomingUniqueCount,
+    percent_change: Math.round((Math.abs(incomingPlaces.length - previousCount) / previousCount) * 100),
+  };
 }
 
 export async function loadListSummaries(): Promise<ListSummary[]> {
@@ -380,7 +438,7 @@ export async function saveClassifications(rows: ClassificationInput[]): Promise<
   await requireSignedInUserId();
   const client = requireSupabase();
   const now = new Date().toISOString();
-  for (const batch of chunk(rows)) {
+  for (const batch of chunk(dedupeClassificationsByFeatureId(rows))) {
     const { error } = await client.from("classifications").upsert(batch.map((row) => ({
       ...row,
       classified_at: now,

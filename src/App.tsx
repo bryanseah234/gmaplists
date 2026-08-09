@@ -4,13 +4,16 @@ import { LogOut, Mail, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 
 import { WorkQueueView } from "./components/Places/WorkQueueView";
 import { InputSection } from "./components/UI/InputSection";
+import { APP_VERSION, EXPECTED_EXTENSION_VERSION } from "./config/version";
 import { AutoTagCategory } from "./services/categoryRules";
 import {
+  getSyncCountWarning,
   loadListSummaries,
   loadPlacesForList,
   saveCategoryOverride,
   setProgressDone,
   syncListToSupabase,
+  SyncCountWarning,
 } from "./services/gmaplistStore";
 import { isSupabaseConfigured, supabase } from "./services/supabaseClient";
 import { ExtractedData, ListSummary, Place } from "./types";
@@ -99,6 +102,7 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
+  const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning } | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== "undefined"
@@ -136,6 +140,30 @@ export default function App() {
     });
   }, [selectedListId, session]);
 
+  const formatError = useCallback((err: unknown, action: string): string => {
+    console.error(`[gmaplist] ${action} failed`, err);
+    if (err && typeof err === "object") {
+      const values = err as Record<string, unknown>;
+      const status = typeof values.status === "number" ? values.status : undefined;
+      const code = typeof values.code === "string" ? values.code : undefined;
+      const message = typeof values.message === "string" ? values.message : undefined;
+      const details = typeof values.details === "string" ? values.details : undefined;
+      const hint = typeof values.hint === "string" ? values.hint : undefined;
+      if (status === 401 || code === "401") {
+        return "Your session expired before the request reached Supabase. Sign out, sign back in, then run the sync again. No later sync steps were run after this error.";
+      }
+      return [
+        `${action} failed.`,
+        message,
+        details ? `Details: ${details}` : null,
+        hint ? `Hint: ${hint}` : null,
+        code ? `Code: ${code}` : null,
+        "If this happened during sync, some earlier chunks may already have written; rerun sync after fixing the error.",
+      ].filter(Boolean).join(" ");
+    }
+    return err instanceof Error ? `${action} failed. ${err.message}` : `${action} failed. ${String(err)}`;
+  }, []);
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -157,6 +185,7 @@ export default function App() {
         setIsReceiving(false);
         setExtensionStatus(null);
         setAuthMessage(null);
+        setPendingSync(null);
       }
     });
 
@@ -213,13 +242,34 @@ export default function App() {
         setError("Sign in before syncing. The captured Maps payload was not saved.");
         return;
       }
+      const warning = await getSyncCountWarning(result);
+      if (warning) {
+        setPendingSync({ data: result, warning });
+        setError(null);
+        return;
+      }
       await syncListToSupabase(result);
       setNewPlacesCount(result.places.length);
       await refreshLists(result.list_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected sync error occurred.");
+      setError(formatError(err, "Sync"));
     }
-  }, [refreshLists, session]);
+  }, [formatError, refreshLists, session]);
+
+  const confirmPendingSync = useCallback(async () => {
+    if (!pendingSync) return;
+    setIsLoading(true);
+    try {
+      await syncListToSupabase(pendingSync.data);
+      setNewPlacesCount(pendingSync.data.places.length);
+      await refreshLists(pendingSync.data.list_id);
+      setPendingSync(null);
+    } catch (err) {
+      setError(formatError(err, "Confirmed sync"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formatError, pendingSync, refreshLists]);
 
   const pushListUrl = useCallback((listId: string) => {
     if (listId && window.location.pathname !== "/" + listId) {
@@ -299,35 +349,47 @@ export default function App() {
   }, [ingestData, pushListUrl, session]);
 
   const handleCategoryChange = useCallback(async (featureId: string, newCategory: AutoTagCategory) => {
-    await saveCategoryOverride(featureId, newCategory);
-    setPlaces((prev) => prev.map((place) =>
-      place.feature_id === featureId
-        ? { ...place, primary_category: newCategory, detailed_category: "Manual override", is_override: true }
-        : place
-    ));
-    await refreshLists(selectedListId);
-  }, [refreshLists, selectedListId]);
+    try {
+      await saveCategoryOverride(featureId, newCategory);
+      setPlaces((prev) => prev.map((place) =>
+        place.feature_id === featureId
+          ? { ...place, primary_category: newCategory, detailed_category: "Manual override", is_override: true }
+          : place
+      ));
+      await refreshLists(selectedListId);
+    } catch (err) {
+      setError(formatError(err, "Saving category override"));
+    }
+  }, [formatError, refreshLists, selectedListId]);
 
   const handleDoneChange = useCallback(async (featureId: string, done: boolean) => {
     if (!selectedListId) return;
-    await setProgressDone(selectedListId, featureId, done);
-    setPlaces((prev) => prev.map((place) => place.feature_id === featureId ? { ...place, done } : place));
-    await refreshLists(selectedListId);
-  }, [refreshLists, selectedListId]);
+    try {
+      await setProgressDone(selectedListId, featureId, done);
+      setPlaces((prev) => prev.map((place) => place.feature_id === featureId ? { ...place, done } : place));
+      await refreshLists(selectedListId);
+    } catch (err) {
+      setError(formatError(err, "Saving progress"));
+    }
+  }, [formatError, refreshLists, selectedListId]);
 
   const handleSelectList = useCallback(async (listId: string) => {
-    setSelectedListId(listId);
-    const listPlaces = await loadPlacesForList(listId);
-    const list = lists.find((item) => item.list_id === listId);
-    setPlaces(listPlaces);
-    setData({
-      list_id: listId,
-      list_title: list?.name ?? "Google Maps list",
-      list_source_url: "",
-      places: listPlaces,
-      ui_config: { sorting_options: [], filter_groups: [] },
-    });
-  }, [lists]);
+    try {
+      setSelectedListId(listId);
+      const listPlaces = await loadPlacesForList(listId);
+      const list = lists.find((item) => item.list_id === listId);
+      setPlaces(listPlaces);
+      setData({
+        list_id: listId,
+        list_title: list?.name ?? "Google Maps list",
+        list_source_url: "",
+        places: listPlaces,
+        ui_config: { sorting_options: [], filter_groups: [] },
+      });
+    } catch (err) {
+      setError(formatError(err, "Loading list"));
+    }
+  }, [formatError, lists]);
 
   const handleReset = () => {
     setData(null);
@@ -339,6 +401,11 @@ export default function App() {
 
   const themeIcon = theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Monitor size={15} />;
   const nextTheme = (): Theme => theme === "system" ? "light" : theme === "light" ? "dark" : "system";
+  const extensionDiagnostics = extensionStatus?.diagnostics && typeof extensionStatus.diagnostics === "object" && !Array.isArray(extensionStatus.diagnostics)
+    ? extensionStatus.diagnostics as Record<string, unknown>
+    : {};
+  const extensionVersion = typeof extensionDiagnostics.extensionVersion === "string" ? extensionDiagnostics.extensionVersion : "unknown";
+  const hasExtensionVersionMismatch = extensionVersion !== "unknown" && extensionVersion !== EXPECTED_EXTENSION_VERSION;
 
   return (
     <div className="min-h-screen bg-zinc-50 transition-colors dark:bg-zinc-950">
@@ -347,6 +414,9 @@ export default function App() {
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">gmaplist</span>
             {data && <span className="truncate text-xs text-zinc-400">{data.list_title}</span>}
+            <span className={`shrink-0 text-[10px] font-semibold ${hasExtensionVersionMismatch ? "text-amber-600 dark:text-amber-300" : "text-zinc-400"}`}>
+              app {APP_VERSION} · ext {extensionVersion}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {data && (
@@ -379,6 +449,26 @@ export default function App() {
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
             {error}
+          </div>
+        )}
+
+        {pendingSync && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+            <p className="font-bold">Sync count changed sharply. No data has been written for this payload.</p>
+            <p className="mt-1">
+              Last successful sync for {pendingSync.warning.list_title} had {pendingSync.warning.previous_count} active places.
+              This payload has {pendingSync.warning.incoming_count} places ({pendingSync.warning.incoming_unique_count} unique, {pendingSync.warning.duplicate_count} duplicates),
+              a {pendingSync.warning.percent_change}% change.
+            </p>
+            <p className="mt-1">If you intentionally changed the list this much, confirm. Otherwise reload the extension, click through Saved → the exact list again, and cancel this sync.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={confirmPendingSync} className="rounded-md bg-amber-900 px-3 py-2 text-xs font-bold text-white dark:bg-amber-200 dark:text-amber-950">
+                Confirm sync anyway
+              </button>
+              <button onClick={() => setPendingSync(null)} className="rounded-md border border-amber-400 px-3 py-2 text-xs font-bold text-amber-900 dark:border-amber-600 dark:text-amber-100">
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
@@ -429,12 +519,12 @@ export default function App() {
           </div>
         ) : (
           <div className="flex min-h-[calc(100vh-80px)] items-start justify-center pt-16">
-            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} />
+            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} appVersion={APP_VERSION} expectedExtensionVersion={EXPECTED_EXTENSION_VERSION} />
           </div>
         )}
         {session && lists.length === 0 && !data && (
           <div className="mt-6">
-            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} />
+            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} appVersion={APP_VERSION} expectedExtensionVersion={EXPECTED_EXTENSION_VERSION} />
           </div>
         )}
         {newPlacesCount > 0 && (

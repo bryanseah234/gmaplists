@@ -8,6 +8,7 @@
   const PUBLIC_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
   const PUBLIC_LOG_TYPE = "GMAPLIST_EXTENSION_LOGS";
   const APP_OPEN_MAPS_URL_TYPE = "GMAPLIST_APP_OPEN_MAPS_URL";
+  const EXTENSION_VERSION = "2026.08.09.5";
 
   let reconnectAttempt = 0;
   let port = null;
@@ -18,6 +19,7 @@
         type: PUBLIC_STATUS_TYPE,
         source: "gmaplists-extension",
         ...status,
+        diagnostics: { extensionVersion: EXTENSION_VERSION, ...(status.diagnostics || {}) },
       },
       window.location.origin
     );
@@ -30,6 +32,7 @@
     window.postMessage(
       {
         ...payload,
+        diagnostics: { extensionVersion: EXTENSION_VERSION, ...(payload.diagnostics || {}) },
         type: PUBLIC_DATA_TYPE,
         source: payload.source || "gmaplists-extension",
       },

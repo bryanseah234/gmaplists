@@ -14,6 +14,7 @@ const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
 const CONTRIBUTOR_INDEX = 12;
+const EXTENSION_VERSION = "2026.08.09.5";
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
@@ -133,7 +134,7 @@ function broadcastStatus(status, message, diagnostics) {
     type: RUNTIME_STATUS_TYPE,
     status,
     message,
-    diagnostics: serializeDetails(diagnostics),
+    diagnostics: serializeDetails({ ...(diagnostics || {}), extensionVersion: EXTENSION_VERSION }),
     capturedAt: Date.now(),
   };
 
@@ -334,11 +335,11 @@ async function runBackgroundExtraction(getlistUrl) {
       diagnostics: {
         mode: "background-getlist",
         fullExtraction: true,
-        needsManualClassification: true,
         placeCount: allPlaces.length,
         total,
         metaCount: allPlaces.length,
         source: "webRequest-observed-getlist",
+        extensionVersion: EXTENSION_VERSION,
       },
     };
 
