@@ -1,1 +1,1567 @@
-{}
+{
+  "3592311145746771111:3125426341002024374": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592304035029338401:-3451776214259973647": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592306091803385517:3490175590909345753": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592306561518563315:4087163985724634038": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Lala pot is a full-meal seafood/hotpot format."
+  },
+  "3592304500872818463:-8714068544834883762": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592310469139566013:6969166463232389498": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323268050825311:-6011248724349849745": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage/building place of interest."
+  },
+  "3588323952513306349:4813607590666340010": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323880697648709:-5797438636091813745": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588324239615907267:-6615359884740199362": {
+    "category": "Drink",
+    "confidence": "medium",
+    "reason": "Nightlife/lounge-style KL venue; no full-meal primary signal in fixture."
+  },
+  "3588323268055664969:6910467338670762656": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Known KL speakeasy/cocktail bar."
+  },
+  "3588302581104203089:-5304117234613525373": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3479808310634038873:-7884677277102078384": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323559556694079:2330729754241826416": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Matcha/tea/dessert specialist, not full-meal primary."
+  },
+  "3588323459732232661:6177979685286378725": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588324106123889323:-2024957315774042059": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Book/stationery retailer."
+  },
+  "3588323921359195345:8867500570610347314": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588323927587617501:-3659515327008586523": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token in high-trust note"
+  },
+  "3588323532093944557:-600655351372670582": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Din Tai Fung restaurant serving full meals."
+  },
+  "3588323401045260625:-7757889520980550944": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588324100458037893:-1700283804337495942": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588324308838918057:-2623182959847610004": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323269283249945:-1483751069786143550": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323427058624897:-2357730703998815347": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588323880321333309:6218714981998367227": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588324099743363735:3670466484897367840": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324095812985123:-5199898263216599192": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Hotel; fits See under lodging/POI fallback."
+  },
+  "3592306053691196461:5431450514273685684": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592310131437783725:8250556538192705586": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "Karaoke entertainment venue, not food/drink/shop by default."
+  },
+  "3588302869380690837:-2321259552956261531": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323607776873457:-8397289086007620777": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Restaurant/meat full-meal venue."
+  },
+  "3588323369145778623:6466912966486291856": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323271065272973:-6763821977986031737": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588304317518001065:6117370767456769569": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323424841232633:-4770457386291901629": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588303778839735403:7840233230867256298": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3588303786027168423:7632520099048070840": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Dining/restaurant venue rather than snack-only."
+  },
+  "3588324135165296863:2188635309178701661": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324114099887847:329535737200803960": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323649946656013:-5628992780478968309": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588323301134891291:-2222406606790789530": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324283263070281:235804464845825000": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592306088807514735:3017227362452116726": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324212834241195:-6512880360584486561": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Restaurant/bar serving full meals, so Food beats Drink."
+  },
+  "3588324019962937463:-3074070454593918146": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588326300843746151:7406485597010105241": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588323934490807739:6670018599419869168": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Not enough reliable category signal."
+  },
+  "3588324502626951719:5024837306728606184": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588304032796332921:-5745588136080041851": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588303478263712279:-466996518916183925": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Dining/restaurant signal; alcohol would not beat full meals."
+  },
+  "3588323269140021121:-4375237346520815670": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324282479520475:-7662950949689365413": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588301970982975425:7652995201664039378": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323897526055137:-4315973396311800001": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Name alone is not categorical."
+  },
+  "3588303477820414213:7620829884205583510": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Japanese dining-style venue."
+  },
+  "3588326512558064221:6494374143966111823": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Could be workspace, shop, or cafe; no reliable signal."
+  },
+  "3588323639646432467:432298068042958888": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Bakery/baked-goods signal."
+  },
+  "3588321906352873007:-4880431722819793458": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323268441809865:4191821099318820911": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324040445096903:5190174866596663179": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No independent venue knowledge beyond prior prompt speculation."
+  },
+  "3588321864276803437:-5888945212158767734": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Food-like phrase, but too generic without venue knowledge."
+  },
+  "3588324110030387221:-2735300290832272705": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588323603599391931:5386292150838423460": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323268961836223:4024108880074871407": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Insufficient venue knowledge from fixture fields."
+  },
+  "3588323268261658829:1174658504025537965": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323268988612609:-8019710289333103334": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323775473866703:-7292405682339297030": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588323269331304657:8981583244301350237": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Chinese Muslim restaurant/full-meal signal."
+  },
+  "3588324216907214979:9089414862448723887": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Could be dining or lifestyle venue; not enough certainty."
+  },
+  "3588324355555716971:571779422902982954": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Public attraction/place of interest."
+  },
+  "3588325695804364461:-5496090392075449977": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Bakery/pastry-style Italian wheat/bread signal."
+  },
+  "3588323312813108589:6162185161001027285": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Dough/bakery specialist."
+  },
+  "3588323267822805203:-7514592895044289743": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588321680934581223:-2332327731569912777": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Malaysian kopitiam/cafe-style venue with full meals."
+  },
+  "3588323247305193195:4824259538279569572": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588324133182120051:5879110325685251554": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token in high-trust note"
+  },
+  "3588324317667617975:-8109951289953582464": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Coffee/cafe-style venue, no full-meal signal in fixture."
+  },
+  "3588324205024865151:-6500460692456053143": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323894261866617:4577664544898295854": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Pork/restaurant full-meal venue."
+  },
+  "3588325810909254349:4155692399283293762": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588324075156361533:1801818564725298282": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588303612144366693:-5859556826647425128": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Possibly nightlife/dining, but not known reliably."
+  },
+  "3588330711677661747:-8380825379374924573": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588326392723699597:3411713501448246011": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588323941729051635:-6451179050516265775": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323877135449571:1807022771393799250": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3592306075894519773:29889014256669187": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592304059165914479:-1496864292279079571": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303618399293267:-5390581948182358670": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592309819776029215:-2966973200692888554": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592303501535785919:-8740051195788078182": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592305220690708227:3751926281502278490": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592302545166677531:5704911120971978950": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592303499975364669:-544878130664787152": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592302537932855163:-5201442618554171021": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Furniture/material goods retailer."
+  },
+  "3592305285898693605:3926870443453614597": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592304523312633421:2551776803812480308": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592304131814725927:7248589992073871341": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592306436913270817:170141882555751727": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Coffee/beans specialist."
+  },
+  "3592310749466579505:-4255685176458938899": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592303676132122869:5103514030929878983": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303368568033205:5546814139876326069": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592303706753621469:-6138211299192758150": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592303900120188081:-6116976720251980521": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592204544778078711:5281149739857369792": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592304492292545341:7998105253176320813": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3592304150311852301:-5863329210915918459": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592303705972995777:-5397482374743198673": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592303706061381991:6717264695792588158": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592302665183999347:2247921435707815879": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592204394318819679:-2089703333183731953": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592306530572395965:-2491276754738367549": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592204667137888067:3852807451814537672": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324145367694237:623684427321795043": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592204869956394461:139986998060363029": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303499912819851:-6497020607632360178": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3479808721013247367:6059059131368818895": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3479809149847386889:-1145855055332424170": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588318986208187253:-7688263503249103227": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588303521291662179:-3471125992642155359": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3588303985080820431:4565090157192772874": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3589916389050300301:-9135449020678258258": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Known cocktail/speakeasy-style bar."
+  },
+  "3592304105350343179:623495774044292393": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Name is too ambiguous."
+  },
+  "3588303600903071371:1093653752169247113": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Dough/bakery/dessert signal."
+  },
+  "3592304529521942811:2618740108426093431": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3592303527243618051:-3588336546319936176": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592304151987690819:7140397545290689678": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588303667388230349:-2942438812809813108": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588304370338566225:2616099918785759749": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588323998928141123:2310899529535907112": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Cookie/dessert specialist."
+  },
+  "3588303476947069253:3032140399460414909": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "Coffee chain/signature cafe."
+  },
+  "3588304240012953895:-8951563386516010202": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323729302638343:4512872968343416392": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Book retailer."
+  },
+  "3588323881828412893:8318395919362480651": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Cultural/creative destination, not purely shop/food."
+  },
+  "3588302556249867859:1786318692871399111": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588304305384751575:8886307762069017008": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Din Tai Fung restaurant serving full meals."
+  },
+  "3588302568015876251:-1326753946397073484": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588323268766126651:-2722138551797949193": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Italian restaurant/full-meal venue."
+  },
+  "3588323268833629423:7934922120212795120": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Branding could be bar, cafe, or retail; not enough certainty."
+  },
+  "3588323304000712189:-5116445254964875377": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Pastry/dessert-style venue."
+  },
+  "3588323486342752247:1104079307810897980": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "ambiguous meal-context token"
+  },
+  "3588323267661198649:1480199485067653031": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3588304296247527087:6761030499743697154": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Electronics retail store."
+  },
+  "3588302582486366015:4061662819426486708": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588303915748435927:-315345231270278406": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588303824581010237:2186697315611750693": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "District/development place, distinct from the mall entry."
+  },
+  "3588304386157602309:-3543637879442605490": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588304374656834591:-3939048179494113751": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "Shopping mall."
+  },
+  "3588304374656834591:-7045039590888271786": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Landmark."
+  },
+  "3588323776910110297:587263463051805470": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No independent venue knowledge beyond prior prompt speculation."
+  },
+  "3588302526541237249:696401894114715231": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588301986474576579:4567975030017222588": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323289907490871:7828450008030939639": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592204282499308607:3720394056077814261": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324088305655547:-5756202743612038646": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592204794877734763:-1932011009358895982": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324219172308329:1048979220331612652": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323291828049243:-4552094554781129967": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Cafe/bakery-style venue, no full-meal signal."
+  },
+  "3592204439735344111:-1167419301419593267": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588324044572347467:-1662494974194410305": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Known cocktail bar."
+  },
+  "3588304149918022101:3377681301662659151": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588323871627478719:-3881616242609280639": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588726294247387421:-5501555046622621516": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3479808695044990545:-2733655360993763237": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592306030463671595:8097968166012009309": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Burger/full-meal restaurant chain."
+  },
+  "3592308987831405065:-2433067735142768607": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323435593663195:8797951865480410570": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303972500336167:1446014391821340186": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3479808734424435353:1488216656155775604": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588302036225269867:-7875630586927170977": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Brand/name ambiguous without reliable venue knowledge."
+  },
+  "3592204440014739245:-9112097713860043456": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592305110453859641:7554594174013010690": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592303702698692405:6013355823129085882": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Eateria and Chinese food-hall naming indicate meals."
+  },
+  "3592303560882854839:7316602125133126002": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592303506269080523:-7553482057276363540": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592305915338785005:2034985835351967386": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303861285651105:6358970561766872390": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303960370863941:-1301184738539205580": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3479849129522002163:8704442012144995103": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Attraction/nature exhibit."
+  },
+  "3592304014765714649:3931270824561457441": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "ambiguous meal-context token"
+  },
+  "3479807072008963685:3211212677007490756": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592303826925658957:3366663269735239510": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3479809104702318737:-1433248988953262735": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Name too ambiguous."
+  },
+  "3592304071056386097:8999644962606187420": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588304398075316835:4886916415301270180": {
+    "category": "Drink",
+    "confidence": "medium",
+    "reason": "Known rooftop bar/lounge identity; override to Food if saved for the restaurant side."
+  },
+  "3479808682310733821:1134899026224418975": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Landmark."
+  },
+  "3479808895935476419:2538661341161131139": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588322353128232979:1180040745160227514": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Landmark/tower."
+  },
+  "3479808692477836915:-1492321705444305174": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588302559118174815:-6936123256373000897": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Changkat nightlife/bar venue."
+  },
+  "3592302742079144295:-5893439774771974591": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3592204280840152029:6658914344587049805": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323900425830817:-3816495391164730892": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Satti sorru rice dish/full meal."
+  },
+  "3588302581291446633:6412316282729519717": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588303801935379445:-4729719129459961591": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "mixed food/goods market treated as experience destination"
+  },
+  "3588304531038232153:752580975424708875": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "mixed food/goods market treated as experience destination in high-trust note"
+  },
+  "3588302554389031093:8282257467054651818": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588303988817501329:-8370695947760892873": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Rooftop bar/nightlife venue."
+  },
+  "3588304369080315123:8871540845564433213": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Bar-restaurant serving full meals, so Food beats Drink."
+  },
+  "3588302592461524353:-6169906774039406155": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Cultural venue."
+  },
+  "3588304278492902531:5834848201949329920": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Malay restaurant serving full meals."
+  },
+  "3588304338884337185:-8871475645488925423": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588304385323206069:-173005475386300767": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588322635729975199:3739350691772101377": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588324150483621177:3750364922043052889": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Landmark/public square."
+  },
+  "3588302567576581655:-4805977196230155058": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Hotel; fits See fallback."
+  },
+  "3588324129701809339:-8442472452408095867": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588324205415605599:-636062950550826795": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "Known KL cocktail speakeasy."
+  },
+  "3588324153158084167:-2351119167805678164": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage/transport landmark."
+  },
+  "3588324118250702571:4925885270283364617": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588324185048040837:-2378835043130912083": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324158194417445:-5772748913486321925": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323566281696183:8657009258930789459": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Could be dining, event, or lodging; not enough certainty."
+  },
+  "3592303700677240531:2785431202121437073": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Dining/table branding suggests full-meal venue."
+  },
+  "3588324297608535369:-8931979287834109698": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Korean dining signal."
+  },
+  "3588324214226194199:5041758226828955073": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3479808089521280133:-1982844499691792224": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3479808672644932113:-4727815505421119351": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage attraction."
+  },
+  "3588304027690718987:1614996281205611498": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588324049930840337:2980094763449633247": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3479809116282381045:4696276884887336532": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage/tourist street."
+  },
+  "3588304385122342707:7539728106409389037": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Aquarium attraction."
+  },
+  "3479809161110901299:1595843106668955708": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3479808710277319419:8676810005730272390": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3479808940052051477:-2719245159498094499": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3479808667265797057:6202881451188459822": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3479808684751809289:-8395592097694082074": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3479808694575771551:3170870964036788662": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage clan house/temple attraction."
+  },
+  "3592305192800032981:7938092754576412257": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "Tourist/photo destination signal."
+  },
+  "3592309728686273201:273156187660840722": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "Landmark/estate-style place of interest."
+  },
+  "3592303692907278113:1253593212653098580": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588324168760431191:-237831741213876222": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592310814342562237:6267022309342294118": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Alcohol-like branding, but no reliable venue knowledge."
+  },
+  "3592204256723774123:9202839947508616349": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Clock tower/landmark."
+  },
+  "3592309747255748907:-2363783734113221236": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Palace grounds/landmark."
+  },
+  "3592204271883268261:-6304015138999498572": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3592205482440344979:4742636897787323510": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Observation/attraction."
+  },
+  "3592306779246419999:-2839347205881097844": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3479807548126980675:-548657203688428615": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Major scenic attraction."
+  },
+  "3479808505608915205:-6943576703180992392": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3479808681566247293:-116303343081054808": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3479808691985845023:-4892164110433481835": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Armenian Street context suggests POI, but venue itself is unclear."
+  },
+  "3479808708688205067:-3797764802628138444": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Art/cultural venue."
+  },
+  "3479808615202065857:-738936140676025265": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Could be dessert/retail, but not known reliably."
+  },
+  "3592306148444151633:8756682799471586099": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "Cat cafe-style destination; Snack over See because cafe format."
+  },
+  "3592310557854388221:1180459843612165869": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588325580092214625:6398795438136379786": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323749282483457:-3959944347368105598": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Heritage lane/attraction."
+  },
+  "3588323842880776501:6963881587300766151": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588322109992968685:-2841096615262101178": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "No reliable category signal."
+  },
+  "3588735038128263697:-7482879509558593013": {
+    "category": "See",
+    "confidence": "medium",
+    "reason": "Transport landmark, not one of the other categories."
+  },
+  "3588326159389049245:2235039906404378611": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588323268409312813:-7457451762326005130": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592304572552504335:5955866741805059162": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592304042488125963:-1871667407857595674": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Wizards cafe/restaurant lineage with full brunch/meal service."
+  },
+  "3588321228778262429:-4102228917620539180": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588322379450837917:-6354967125221419104": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323376759934839:-2689130156719091626": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323303300651793:-9093274656617713958": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588303477198319607:-5274358986066631640": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588323837896448951:-2817921707134244101": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "ambiguous meal-context token"
+  },
+  "3588302541567339207:89589825951338072": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588330276749059501:3915187732934920487": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588322371945474829:-4896409165042012133": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588303775849799939:-1054839784035515539": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323565313219921:5949127276730989340": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324204592714641:499503227853310496": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Stadium/heritage venue."
+  },
+  "3592310817823101163:4650194638637172300": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3592304194555624597:5144419745670975842": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Known JB Japanese-inspired cafe/restaurant with full meals."
+  },
+  "3592303688710788385:-7167408067819852400": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588303885994215637:2566996262896287312": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "Pedestrian bridge/landmark."
+  },
+  "3588324127787820549:-9205407124020316862": {
+    "category": "See",
+    "confidence": "high",
+    "reason": "visit, attraction, lodging, or experience token"
+  },
+  "3588323269422589817:-1855941652457254439": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Cafe/restaurant with brunch/full-meal service."
+  },
+  "3588323609468590789:-6271261917259797543": {
+    "category": "Food",
+    "confidence": "medium",
+    "reason": "Restaurant/tapas-style full-meal venue."
+  },
+  "3588323887505716097:7162404596588771831": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323741743233221:8191725540100570592": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588326350339313951:-561499235067900253": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323269435463673:-6434194998234220600": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323301283618309:5094156109596978218": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323829966172411:-4339244323281775362": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "Lok lok food vendor destination."
+  },
+  "3588325968381439375:7940604748860783062": {
+    "category": "Drink",
+    "confidence": "high",
+    "reason": "alcohol or nightlife venue token"
+  },
+  "3588301701297418483:-3491120907776495138": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3588324168315524825:1572383908415842186": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588324168436748371:-8713843824262708042": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588322357435337741:821701979128123478": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588302532361055307:-6068951073393039964": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588302947485266929:4378374005087121397": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588322348665468727:-6412007333988101349": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588304392753494953:-3848479708599712680": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588323499492064533:4810620103799618713": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588324205953036317:934493891418106604": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323967333726685:3779718002481416726": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588302578147373453:5622823799589635107": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324279641850657:421753416419698610": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588326226555829923:6221117261947965752": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588320425827519609:-5405963096256748506": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588320274904575779:-6776114665244057026": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588324168018908997:-6199495178503193859": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token in high-trust note"
+  },
+  "3588302558614491553:4501121685384446339": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token in high-trust note"
+  },
+  "3588327666804620489:4238338020363641910": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588330198223211813:4050366682812991417": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323924189007267:3911859767241485992": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token"
+  },
+  "3588323478766089761:2425966433158524732": {
+    "category": "Food",
+    "confidence": "high",
+    "reason": "full-meal venue or meal dish token in high-trust note"
+  },
+  "3588323642076583965:-7792207482305740175": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588323928664536869:1982128791617467766": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588303477669816931:-5457610359465456996": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588324088789317961:-8474706974263675731": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3588303542514154623:7520098693097299094": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Could be lifestyle/retail/community venue; not enough certainty."
+  },
+  "3592306147961341969:-6263270894090488305": {
+    "category": "Snack",
+    "confidence": "medium",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592305946248999693:-5463515359524613818": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  },
+  "3592303500096601207:2136448724630649408": {
+    "category": "Unsorted",
+    "confidence": "low",
+    "reason": "Name/location is ambiguous; no confident category."
+  },
+  "3592310885735181913:-4437015815519154273": {
+    "category": "Shop",
+    "confidence": "high",
+    "reason": "retail or shopping token"
+  },
+  "3592310707877873971:2156178146106556009": {
+    "category": "Snack",
+    "confidence": "high",
+    "reason": "dessert, bakery, or non-alcoholic drink token"
+  }
+}

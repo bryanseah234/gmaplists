@@ -1,5 +1,5 @@
 import { Place } from "../types";
-import { AutoTagCategory, categoryFromFoodDescriptiveNote, classifyPlaceByRules } from "./categoryRules";
+import { AutoTagCategory, RuleMatch, categoryFromFoodDescriptiveNote, classifyPlaceByRules } from "./categoryRules";
 
 export interface MeasuredPlace {
   feature_id?: string;
@@ -8,6 +8,9 @@ export interface MeasuredPlace {
   confidence: string;
   rule_id: string;
   reason: string;
+  matched_on: string;
+  matched_families: RuleMatch[];
+  resolution: string;
 }
 
 export interface NoteValidationResult {
@@ -30,6 +33,10 @@ export interface RuleMeasurementResult {
   taggedPercent: number;
   unsortedPercent: number;
   unsortedNames: string[];
+  categoryCounts: Record<AutoTagCategory, number>;
+  confidenceCounts: Record<string, number>;
+  multiFamilyMatches: MeasuredPlace[];
+  addressFallbackOnly: MeasuredPlace[];
   places: MeasuredPlace[];
   noteValidation: NoteValidationResult;
 }
@@ -55,6 +62,9 @@ export function classifyPlacesForMeasurement(places: Place[]): MeasuredPlace[] {
       confidence: result.confidence,
       rule_id: result.ruleId,
       reason: result.reason,
+      matched_on: result.matchedOn,
+      matched_families: result.matchedFamilies,
+      resolution: result.resolution,
     };
   });
 }
@@ -106,6 +116,14 @@ export function measureRuleCoverage(places: Place[]): RuleMeasurementResult {
     .sort((a, b) => a.localeCompare(b));
   const unsortedCount = unsortedNames.length;
   const taggedCount = measured.length - unsortedCount;
+  const categoryCounts = measured.reduce((counts, place) => {
+    counts[place.category] = (counts[place.category] ?? 0) + 1;
+    return counts;
+  }, { Food: 0, Snack: 0, Drink: 0, See: 0, Shop: 0, Unsorted: 0 } as Record<AutoTagCategory, number>);
+  const confidenceCounts = measured.reduce((counts, place) => {
+    counts[place.confidence] = (counts[place.confidence] ?? 0) + 1;
+    return counts;
+  }, { high: 0, medium: 0, low: 0 } as Record<string, number>);
 
   return {
     total: measured.length,
@@ -114,6 +132,10 @@ export function measureRuleCoverage(places: Place[]): RuleMeasurementResult {
     taggedPercent: roundPercent(taggedCount, measured.length),
     unsortedPercent: roundPercent(unsortedCount, measured.length),
     unsortedNames,
+    categoryCounts,
+    confidenceCounts,
+    multiFamilyMatches: measured.filter((place) => new Set(place.matched_families.map((match) => match.category)).size >= 2),
+    addressFallbackOnly: measured.filter((place) => place.matched_on === "address"),
     places: measured,
     noteValidation: validateAgainstFoodNotes(places, measured),
   };

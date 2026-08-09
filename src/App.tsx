@@ -1,12 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState } from "react";
+import { Session } from "@supabase/supabase-js";
+import { LogOut, Mail, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 
-import { saveListMeta, loadOverrides, saveOverride, applyOverrides, countNewPlaces, restoreList } from './services/storageService';
-import { ExtractedData, Place } from './types';
-import { GroupedPlacesView } from './components/Places/GroupedPlacesView';
-import { InputSection } from './components/UI/InputSection';
-import { Sun, Moon, Monitor, RotateCcw } from 'lucide-react';
+import { WorkQueueView } from "./components/Places/WorkQueueView";
+import { InputSection } from "./components/UI/InputSection";
+import { AutoTagCategory } from "./services/categoryRules";
+import {
+  loadListSummaries,
+  loadPlacesForList,
+  saveCategoryOverride,
+  setProgressDone,
+  syncListToSupabase,
+} from "./services/gmaplistStore";
+import { isSupabaseConfigured, supabase } from "./services/supabaseClient";
+import { ExtractedData, ListSummary, Place } from "./types";
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = "light" | "dark" | "system";
 
 type IncomingMapsPayload = {
   data: unknown;
@@ -30,28 +39,27 @@ type ExtensionLogEntry = {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeExtensionStatus(message: unknown): ExtensionStatus | null {
-  if (!isRecord(message) || message.type !== 'GMAPLIST_EXTENSION_STATUS') return null;
-
+  if (!isRecord(message) || message.type !== "GMAPLIST_EXTENSION_STATUS") return null;
   return {
-    status: typeof message.status === 'string' ? message.status : 'unknown',
-    message: typeof message.message === 'string' ? message.message : undefined,
+    status: typeof message.status === "string" ? message.status : "unknown",
+    message: typeof message.message === "string" ? message.message : undefined,
     diagnostics: message.diagnostics,
-    capturedAt: typeof message.capturedAt === 'number' ? message.capturedAt : undefined,
+    capturedAt: typeof message.capturedAt === "number" ? message.capturedAt : undefined,
   };
 }
 
 function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | null {
   if (!isRecord(message)) return null;
 
-  if (message.type === 'GMAPLIST_DATA' && message.data) {
+  if (message.type === "GMAPLIST_DATA" && message.data) {
     return { data: message.data, meta: message.meta, diagnostics: message.diagnostics };
   }
 
-  if (message.type === 'GMAPLIST_EXTENSION_DATA' && isRecord(message.payload) && message.payload.data) {
+  if (message.type === "GMAPLIST_EXTENSION_DATA" && isRecord(message.payload) && message.payload.data) {
     return {
       data: message.payload.data,
       meta: message.payload.meta,
@@ -63,120 +71,153 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
 }
 
 function normalizeExtensionLogs(message: unknown): ExtensionLogEntry[] | null {
-  if (!isRecord(message) || message.type !== 'GMAPLIST_EXTENSION_LOGS') return null;
+  if (!isRecord(message) || message.type !== "GMAPLIST_EXTENSION_LOGS") return null;
 
   const logs = Array.isArray(message.logs) ? message.logs : [];
   return logs.filter(isRecord).map((entry) => ({
-    level: typeof entry.level === 'string' ? entry.level : undefined,
-    message: typeof entry.message === 'string' ? entry.message : undefined,
+    level: typeof entry.level === "string" ? entry.level : undefined,
+    message: typeof entry.message === "string" ? entry.message : undefined,
     details: entry.details,
-    capturedAt: typeof entry.capturedAt === 'number' ? entry.capturedAt : undefined,
-    pageUrl: typeof entry.pageUrl === 'string' ? entry.pageUrl : undefined,
+    capturedAt: typeof entry.capturedAt === "number" ? entry.capturedAt : undefined,
+    pageUrl: typeof entry.pageUrl === "string" ? entry.pageUrl : undefined,
   }));
 }
 
 export default function App() {
   const [data, setData] = useState<ExtractedData | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
+  const [lists, setLists] = useState<ListSummary[]>([]);
+  const [selectedListId, setSelectedListId] = useState("");
   const [newPlacesCount, setNewPlacesCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiving, setIsReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [email, setEmail] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
-  const [extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
+  const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
 
   const [theme, setTheme] = useState<Theme>(() =>
-    typeof window !== 'undefined'
-      ? (localStorage.getItem('maplist-theme') as Theme) || 'system'
-      : 'system'
+    typeof window !== "undefined"
+      ? (localStorage.getItem("maplist-theme") as Theme) || "system"
+      : "system"
   );
 
-  // Theme
   useEffect(() => {
     const root = window.document.documentElement;
-    const apply = (t: 'light' | 'dark') =>
-      t === 'dark' ? root.classList.add('dark') : root.classList.remove('dark');
-    if (theme === 'system') {
-      apply(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    } else {
-      apply(theme);
-    }
-    localStorage.setItem('maplist-theme', theme);
+    const apply = (next: "light" | "dark") =>
+      next === "dark" ? root.classList.add("dark") : root.classList.remove("dark");
+    if (theme === "system") apply(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    else apply(theme);
+    localStorage.setItem("maplist-theme", theme);
   }, [theme]);
 
-  // Ingest parsed data — apply overrides, save meta, compute new count
-  const ingestData = useCallback((result: ExtractedData) => {
-    try {
-      const overrides = loadOverrides(result.list_id);
-      const newCount = countNewPlaces(result.places, result.list_id);
-      const enriched = applyOverrides(result.places, overrides);
-      setData(result);
-      setPlaces(enriched);
-      setNewPlacesCount(newCount);
-      saveListMeta(result.list_id, result.list_title, result.places.length, result.places, result.list_source_url);
-    } catch (e: any) {
-      if (e.name === 'StorageQuotaExceededError') {
-        setError(e.message);
-      } else {
-        setError('An unexpected error occurred while saving.');
-      }
-    }
-  }, []);
+  const refreshLists = useCallback(async (preferredListId?: string) => {
+    if (!session) return;
+    const nextLists = await loadListSummaries();
+    setLists(nextLists);
 
-  // Sync URL to list slug
-  const pushListUrl = useCallback((listId: string) => {
-    if (listId && window.location.pathname !== '/' + listId) {
-      window.history.pushState({ listId }, '', '/' + listId);
-    }
-  }, []);
+    const nextSelected = preferredListId || selectedListId || nextLists[0]?.list_id || "";
+    setSelectedListId(nextSelected);
+    if (!nextSelected) return;
 
-  // On mount: restore list from localStorage if URL contains a known list ID
+    const listPlaces = await loadPlacesForList(nextSelected);
+    const list = nextLists.find((item) => item.list_id === nextSelected);
+    setPlaces(listPlaces);
+    setData({
+      list_id: nextSelected,
+      list_title: list?.name ?? "Google Maps list",
+      list_source_url: "",
+      places: listPlaces,
+      ui_config: { sorting_options: [], filter_groups: [] },
+    });
+  }, [selectedListId, session]);
+
   useEffect(() => {
-    const slug = window.location.pathname.replace(/^\//, '').trim();
-    if (slug && slug.length > 10) {
-      const restored = restoreList(slug);
-      if (restored) {
-        const overrides = loadOverrides(slug);
-        const enriched = applyOverrides(restored.places, overrides);
-        setData({
-          list_title: restored.list_title,
-          list_source_url: restored.list_source_url,
-          list_id: slug,
-          places: enriched,
-          ui_config: { sorting_options: [], filter_groups: [] },
-        });
-        setPlaces(enriched);
-        setNewPlacesCount(0);
+    if (!supabase) return;
+
+    supabase.auth.getSession().then(({ data: authData }) => setSession(authData.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (!nextSession) {
+        setLists([]);
+        setPlaces([]);
+        setData(null);
+        setSelectedListId("");
       }
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    refreshLists().catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [session]);
+
+  const signIn = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setAuthMessage(null);
+    if (!supabase) {
+      setError("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+      return;
+    }
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (authError) setError(authError.message);
+    else setAuthMessage("Magic link sent. Check your email.");
+  };
+
+  const signOut = async () => {
+    await supabase?.auth.signOut();
+  };
+
+  const ingestData = useCallback(async (result: ExtractedData) => {
+    try {
+      if (!session) {
+        setError("Sign in before syncing. The captured Maps payload was not saved.");
+        return;
+      }
+      await syncListToSupabase(result);
+      setNewPlacesCount(result.places.length);
+      await refreshLists(result.list_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected sync error occurred.");
+    }
+  }, [refreshLists, session]);
+
+  const pushListUrl = useCallback((listId: string) => {
+    if (listId && window.location.pathname !== "/" + listId) {
+      window.history.pushState({ listId }, "", "/" + listId);
     }
   }, []);
 
-  // Signal to extension/app bridges that this tab is ready to receive data.
   useEffect(() => {
     if (window.opener) {
-      window.opener.postMessage({ type: 'GMAPLIST_READY' }, '*');
+      window.opener.postMessage({ type: "GMAPLIST_READY" }, "*");
     }
   }, []);
 
-  // On mount: if URL has a list slug, switch to receiving mode for extension data.
   useEffect(() => {
-    const slug = window.location.pathname.replace(/^\//, '').trim();
-    if (slug && slug.length > 10) {
-      // Valid list ID in URL — switch to receiving mode so UI is ready
-      setIsReceiving(true);
-    }
+    const slug = window.location.pathname.replace(/^\//, "").trim();
+    if (slug && slug.length > 10) setIsReceiving(true);
   }, []);
 
-  // Listen for postMessage from the extension app bridge.
   useEffect(() => {
     setIsReceiving(true);
     const handler = (event: MessageEvent) => {
       try {
-        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        const msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
         const status = normalizeExtensionStatus(msg);
         if (status) {
           setExtensionStatus(status);
-          console.info('[GMapLists] extension status', status);
           return;
         }
 
@@ -194,111 +235,67 @@ export default function App() {
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
-        if (incoming.diagnostics) {
-          console.info('[GMapLists] received map payload', incoming.diagnostics);
-          setExtensionStatus({
-            status: 'payload',
-            message: 'Maps payload received by app.',
-            diagnostics: incoming.diagnostics,
-            capturedAt: Date.now(),
-          });
-        }
-        
-        const raw = ")]}'\n" + JSON.stringify(incoming.data);
-        
-        const worker = new Worker(new URL('./services/parser.worker.ts', import.meta.url), { type: 'module' });
-        
-        worker.onmessage = (e) => {
-          if (e.data.action === 'PARSE_COMPLETE') {
-            ingestData(e.data.data);
-            pushListUrl(e.data.data.list_id);
-          } else if (e.data.action === 'PARSE_ERROR') {
-            setError(e.data.error);
+
+        const worker = new Worker(new URL("./services/parser.worker.ts", import.meta.url), { type: "module" });
+        worker.onmessage = (workerEvent) => {
+          if (workerEvent.data.action === "PARSE_COMPLETE") {
+            ingestData(workerEvent.data.data);
+            pushListUrl(workerEvent.data.data.list_id);
+          } else if (workerEvent.data.action === "PARSE_ERROR") {
+            setError(workerEvent.data.error);
           }
           setIsLoading(false);
           worker.terminate();
         };
-        
         worker.onerror = (err) => {
-          setError('Worker error: ' + err.message);
+          setError("Worker error: " + err.message);
           setIsLoading(false);
           worker.terminate();
         };
-        
         worker.postMessage({
-          action: 'PARSE',
-          payload: { rawData: raw, isJson: true, meta: incoming.meta }
+          action: "PARSE",
+          payload: { rawData: ")]}'\n" + JSON.stringify(incoming.data), isJson: true, meta: incoming.meta },
         });
-      } catch (e) {
-        setError('Failed to parse map data: ' + String(e));
+      } catch (err) {
+        setError("Failed to parse map data: " + String(err));
         setIsLoading(false);
       }
     };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
   }, [ingestData, pushListUrl]);
 
-  // Handle manual paste fallback
-  const handleExtract = useCallback(async (input: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const trimmed = input.trim();
-      const isJson = trimmed.startsWith(')]}\'') || trimmed.startsWith('{"type":"GMAPLIST') || trimmed.startsWith('[[');
-      
-      const worker = new Worker(new URL('./services/parser.worker.ts', import.meta.url), { type: 'module' });
-      
-      worker.onmessage = (e) => {
-        if (e.data.action === 'PARSE_COMPLETE') {
-          ingestData(e.data.data);
-          pushListUrl(e.data.data.list_id);
-        } else if (e.data.action === 'PARSE_ERROR') {
-          setError(e.data.error);
-        }
-        setIsLoading(false);
-        worker.terminate();
-      };
-      
-      worker.onerror = (err) => {
-        setError('Worker error: ' + err.message);
-        setIsLoading(false);
-        worker.terminate();
-      };
-      
-      worker.postMessage({
-        action: 'PARSE',
-        payload: { rawData: trimmed, isJson: isJson }
-      });
-    } catch (e) {
-      setError("Failed to extract map link. " + String(e));
-      setIsLoading(false);
-    }
-  }, [ingestData]);
+  const handleCategoryChange = useCallback(async (featureId: string, newCategory: AutoTagCategory) => {
+    await saveCategoryOverride(featureId, newCategory);
+    setPlaces((prev) => prev.map((place) =>
+      place.feature_id === featureId
+        ? { ...place, primary_category: newCategory, detailed_category: "Manual override", is_override: true }
+        : place
+    ));
+    await refreshLists(selectedListId);
+  }, [refreshLists, selectedListId]);
 
-  // Handle drag-and-drop category change
-  const handleCategoryChange = useCallback((placeName: string, newCategory: string) => {
-    if (!data) return;
-    try {
-      // Persist to localStorage first so it fails before UI update if quota hit
-      saveOverride(data.list_id, placeName, newCategory);
-      // Update in state
-      setPlaces((prev) =>
-        prev.map((p) =>
-          p.place_name === placeName
-            ? { ...p, primary_category: newCategory, is_override: true }
-            : p
-        )
-      );
-    } catch (e: any) {
-      if (e.name === 'StorageQuotaExceededError') {
-        setError(e.message);
-      } else {
-        setError('An unexpected error occurred while saving override.');
-      }
-    }
-  }, [data]);
+  const handleDoneChange = useCallback(async (featureId: string, done: boolean) => {
+    if (!selectedListId) return;
+    await setProgressDone(selectedListId, featureId, done);
+    setPlaces((prev) => prev.map((place) => place.feature_id === featureId ? { ...place, done } : place));
+    await refreshLists(selectedListId);
+  }, [refreshLists, selectedListId]);
 
-  // Reset back to import screen
+  const handleSelectList = useCallback(async (listId: string) => {
+    setSelectedListId(listId);
+    const listPlaces = await loadPlacesForList(listId);
+    const list = lists.find((item) => item.list_id === listId);
+    setPlaces(listPlaces);
+    setData({
+      list_id: listId,
+      list_title: list?.name ?? "Google Maps list",
+      list_source_url: "",
+      places: listPlaces,
+      ui_config: { sorting_options: [], filter_groups: [] },
+    });
+  }, [lists]);
+
   const handleReset = () => {
     setData(null);
     setPlaces([]);
@@ -307,83 +304,95 @@ export default function App() {
     setIsReceiving(true);
   };
 
-  const themeIcon = theme === 'dark' ? <Moon size={15} /> : theme === 'light' ? <Sun size={15} /> : <Monitor size={15} />;
-  const nextTheme = (): Theme => theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+  const themeIcon = theme === "dark" ? <Moon size={15} /> : theme === "light" ? <Sun size={15} /> : <Monitor size={15} />;
+  const nextTheme = (): Theme => theme === "system" ? "light" : theme === "light" ? "dark" : "system";
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 transition-colors">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-[1600px] mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          {/* Left: logo + compact count */}
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="text-sm font-bold text-zinc-900 dark:text-white tracking-tight flex-shrink-0">GMapList</span>
-            {data && (
-              <>
-                <span className="text-zinc-300 dark:text-zinc-700">·</span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500 flex-shrink-0">
-                  {places.length} places
-                </span>
-              </>
-            )}
+    <div className="min-h-screen bg-zinc-50 transition-colors dark:bg-zinc-950">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
+        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-3 px-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">gmaplist</span>
+            {data && <span className="truncate text-xs text-zinc-400">{data.list_title}</span>}
           </div>
-
-          {/* Right: actions */}
           <div className="flex items-center gap-2">
             {data && (
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 transition-all"
-                title="Re-import a list"
-              >
-                <RotateCcw size={12} /> Re-import
+              <button onClick={handleReset} className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-white">
+                <RotateCcw size={12} /> Sync
               </button>
             )}
-            <button
-              onClick={() => setTheme(nextTheme())}
-              className="p-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 transition-all"
-              title={`Theme: ${theme}`}
-            >
+            {session && (
+              <button onClick={signOut} className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-white">
+                <LogOut size={12} /> Sign out
+              </button>
+            )}
+            <button onClick={() => setTheme(nextTheme())} className="rounded-lg border border-zinc-200 p-2 text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-white" title={`Theme: ${theme}`}>
               {themeIcon}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-6">
-        {/* Loading overlay */}
+      <main className="mx-auto max-w-5xl px-3 py-4">
         {isLoading && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
-              <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-zinc-800 dark:text-white font-semibold text-lg">Processing your list...</p>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm">Extracting places and Google Maps links</p>
+            <div className="rounded-lg bg-white p-6 shadow-2xl dark:bg-zinc-900">
+              <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-950 dark:border-zinc-700 dark:border-t-white" />
+              <p className="mt-4 text-center text-sm font-semibold text-zinc-900 dark:text-white">Syncing list...</p>
             </div>
           </div>
         )}
 
-        {/* Error */}
         {error && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
             {error}
           </div>
         )}
 
-        {/* Grouped links or import screen */}
-        {data && places.length > 0 ? (
-          <GroupedPlacesView
-            data={data}
+        {session && selectedListId ? (
+          <WorkQueueView
+            lists={lists}
+            selectedListId={selectedListId}
             places={places}
+            onSelectList={handleSelectList}
             onCategoryChange={handleCategoryChange}
-            newPlacesCount={newPlacesCount}
+            onDoneChange={handleDoneChange}
+            onRefresh={() => refreshLists(selectedListId)}
           />
+        ) : !session ? (
+          <div className="flex min-h-[calc(100vh-80px)] items-start justify-center pt-16">
+            <form onSubmit={signIn} className="grid w-full max-w-sm gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+              <div>
+                <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to gmaplist</h1>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Email magic link only. Sync is disabled while signed out.</p>
+              </div>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                className="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+              />
+              <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-zinc-950 text-sm font-bold text-white dark:bg-white dark:text-zinc-950">
+                <Mail size={16} /> Send magic link
+              </button>
+              {!isSupabaseConfigured && <p className="text-xs text-red-600">Missing Supabase environment variables.</p>}
+              {authMessage && <p className="text-xs text-emerald-600">{authMessage}</p>}
+            </form>
+          </div>
         ) : (
-          <div className="flex items-start justify-center min-h-[calc(100vh-80px)] pt-16">
-            <InputSection
-              isReceiving={isReceiving}
-              extensionStatus={extensionStatus}
-            />
+          <div className="flex min-h-[calc(100vh-80px)] items-start justify-center pt-16">
+            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} />
+          </div>
+        )}
+        {session && lists.length === 0 && !data && (
+          <div className="mt-6">
+            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} />
+          </div>
+        )}
+        {newPlacesCount > 0 && (
+          <div className="fixed bottom-3 left-3 right-3 mx-auto max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-800 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            Synced {newPlacesCount} places.
           </div>
         )}
       </main>

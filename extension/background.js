@@ -13,6 +13,7 @@ const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
 const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
+const CONTRIBUTOR_INDEX = 12;
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
@@ -82,6 +83,41 @@ function extractListId(url) {
   }
 
   return null;
+}
+
+function stripContributorProfilesFromGetlist(data) {
+  if (!Array.isArray(data)) return data;
+  const cloned = structuredClone(data);
+  const places = Array.isArray(cloned?.[0]?.[8]) ? cloned[0][8] : [];
+
+  for (const place of places) {
+    if (Array.isArray(place) && place.length > CONTRIBUTOR_INDEX) {
+      place[CONTRIBUTOR_INDEX] = null;
+    }
+  }
+
+  return cloned;
+}
+
+function assertContributorProfilesStrippedFromGetlist(data) {
+  const places = Array.isArray(data?.[0]?.[8]) ? data[0][8] : [];
+  const leakingIndex = places.findIndex((place) =>
+    Array.isArray(place) && place.length > CONTRIBUTOR_INDEX && place[CONTRIBUTOR_INDEX] != null
+  );
+
+  if (leakingIndex >= 0) {
+    throw new Error(`Contributor profile data was not stripped from getlist place index ${leakingIndex}.`);
+  }
+}
+
+function sanitizePayload(payload) {
+  if (!payload?.data) return payload;
+  const sanitized = {
+    ...payload,
+    data: stripContributorProfilesFromGetlist(payload.data),
+  };
+  assertContributorProfilesStrippedFromGetlist(sanitized.data);
+  return sanitized;
 }
 
 function broadcastToApp(payload) {
@@ -268,9 +304,10 @@ async function fetchAllListPlaces(getlistUrl) {
 }
 
 function storeAndBroadcastPayload(payload) {
-  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: payload }, () => {
-    addDebugLog("info", "Stored captured payload", payload.diagnostics);
-    broadcastToApp(payload);
+  const sanitized = sanitizePayload(payload);
+  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
+    addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
+    broadcastToApp(sanitized);
   });
 }
 
@@ -297,7 +334,7 @@ async function runBackgroundExtraction(getlistUrl) {
       diagnostics: {
         mode: "background-getlist",
         fullExtraction: true,
-        needsGeminiSorting: true,
+        needsManualClassification: true,
         placeCount: allPlaces.length,
         total,
         metaCount: allPlaces.length,
@@ -498,10 +535,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: message.payload }, () => {
-    addDebugLog("info", "Stored captured payload", message.payload.diagnostics);
-    console.info("[GMapLists] stored captured payload", message.payload.diagnostics);
-    broadcastToApp(message.payload);
+  const sanitized = sanitizePayload(message.payload);
+  chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
+    addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
+    console.info("[GMapLists] stored captured payload", sanitized.diagnostics);
+    broadcastToApp(sanitized);
     sendResponse({ ok: true });
   });
 

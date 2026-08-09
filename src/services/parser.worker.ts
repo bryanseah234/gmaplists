@@ -1,21 +1,15 @@
 /// <reference lib="webworker" />
 
 import { parseApiJson } from './apiParserService';
-import { parseMapData } from './parserService';
 
 self.onmessage = async (event: MessageEvent) => {
   const { action, payload } = event.data;
   
   if (action === 'PARSE') {
     try {
-      const { rawData, sourceUrl, isJson, meta } = payload;
-      let result = null;
-      
-      if (isJson) {
-        result = parseApiJson(rawData, meta);
-      } else {
-        result = await parseMapData(rawData);
-      }
+      const { rawData, isJson, meta } = payload;
+      if (!isJson) throw new Error("Only captured getlist JSON is supported.");
+      const result = parseApiJson(rawData, meta);
       
       if (result && result.places.length > 0) {
         self.postMessage({ action: 'PARSE_COMPLETE', data: result });

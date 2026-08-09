@@ -26,10 +26,23 @@ export interface Place {
   hex_place_id?: string;
   /** Stable Google Maps feature tuple joined as "id0:id1"; used for static tags */
   feature_id?: string;
+  /** True after this place has been tagged manually in Google Maps for the selected list */
+  done?: boolean;
+  done_at?: string;
+  resolved_reason?: string;
+  resolved_confidence?: "high" | "medium" | "low";
   /** True when user has manually dragged this card to a different column */
   is_override: boolean;
-  /** The list ID this place belongs to (for localStorage keying) */
-  list_id?: string;
+}
+
+export interface ListSummary {
+  list_id: string;
+  name: string;
+  last_synced: string | null;
+  total_count: number;
+  done_count: number;
+  remaining_count: number;
+  unclassified_count: number;
 }
 
 export interface SortingOption {

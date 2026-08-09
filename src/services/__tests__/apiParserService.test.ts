@@ -6,7 +6,7 @@ function getlistPlace({
   label,
   address,
   note = "",
-  featureId = ["3592311145746771111", "3125426341002024374"],
+  featureId = ["9000000000000000001", "9000000000000000002"],
 }: {
   name: string;
   label?: string;
@@ -85,15 +85,15 @@ describe('apiParserService', () => {
     expect(result.places).toHaveLength(1);
     expect(result.places[0]).toMatchObject({
       place_name: "DUDU DUCK CAFE",
-      primary_category: "Unsorted",
-      detailed_category: "Unknown",
+      primary_category: "Snack",
+      detailed_category: "Rule: snack.sweets.bakery.note",
       user_notes: "Butter",
       lat: 1.5140387,
       lng: 103.6551804,
       address: "Lot L1-078, Tasek Central Mall, Skudai, Johor, Malaysia",
       place_label: "Lot L1-078, DUDU DUCK CAFE, Tasek Central Mall, Skudai, Johor, Malaysia",
       hex_place_id: "0x31da19b066f8cac9:0x2b5f2f8ea19dcbf6",
-      feature_id: "3592311145746771111:3125426341002024374",
+      feature_id: "9000000000000000001:9000000000000000002",
       added_at: 1786159254,
     });
   });
@@ -122,7 +122,8 @@ describe('apiParserService', () => {
 
     expect(result.places[0]).toMatchObject({
       place_name: "Nested Cafe",
-      primary_category: "Unsorted",
+      primary_category: "Snack",
+      detailed_category: "Rule: snack.sweets.bakery",
       price_level: "$$",
       lat: 1.5140387,
       lng: 103.6551804,
@@ -145,5 +146,44 @@ describe('apiParserService', () => {
 
     expect(result.places[0].google_maps_link).not.toContain("place_id:0x");
     expect(result.places[0].google_maps_link).toContain("/maps/search/");
+  });
+
+  it('uses committed static tags before local rules', () => {
+    const raw = ")]}'\n" + JSON.stringify(listJson([
+      getlistPlace({
+        name: "Blackbyrd KL",
+        label: "Blackbyrd KL",
+        address: "Kuala Lumpur",
+        featureId: ["3588304369080315123", "8871540845564433213"],
+      }),
+    ]));
+
+    const result = parseApiJson(raw);
+
+    expect(result.places[0]).toMatchObject({
+      place_name: "Blackbyrd KL",
+      primary_category: "Food",
+      detailed_category: "Static tag (medium)",
+      feature_id: "3588304369080315123:8871540845564433213",
+    });
+  });
+
+  it('strips contributor profile slots before parsing getlist rows', () => {
+    const placeWithContributor = getlistPlace({
+      name: "Privacy Test Cafe",
+      label: "Privacy Test Cafe",
+      address: "123 Test Road",
+    });
+    placeWithContributor[12] = ["Display Name", "https://lh3.googleusercontent.com/avatar", "account-id"];
+
+    const raw = ")]}'\n" + JSON.stringify(listJson([
+      placeWithContributor,
+    ]));
+
+    const result = parseApiJson(raw);
+
+    expect(result.places).toHaveLength(1);
+    expect(JSON.stringify(result.places[0])).not.toContain("account-id");
+    expect(JSON.stringify(result.places[0])).not.toContain("googleusercontent.com/avatar");
   });
 });

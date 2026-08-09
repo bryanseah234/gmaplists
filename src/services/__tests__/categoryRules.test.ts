@@ -10,12 +10,16 @@ describe("categoryRules", () => {
       "Kedai Makan Rahmat",
       "Warung Nasi Lemak",
       "Mamak Roti Canai",
+      "Old School Eatery",
+      "Hong Kong Cuisine",
+      "Claypot Chicken Rice",
+      "Japanese Dining",
       "Bak Kut Teh Klang",
       "Char Kway Teow Penang",
       "Yong Tau Foo Ampang",
       "Steamboat Restaurant",
       "Dim Sum 茶餐室",
-      "DUDU DUCK CAFE",
+      "Izakaya Dinner House",
     ];
 
     for (const displayName of examples) {
@@ -40,9 +44,63 @@ describe("categoryRules", () => {
 
   it("prioritizes alcohol venue tokens as Drink", () => {
     expect(classifyPlaceByRules({ displayName: "Hidden Cocktail Bar and Kitchen" })).toMatchObject({
+      category: "Food",
+      confidence: "high",
+      ruleId: "food.meal",
+      resolution: "Food wins because full-meal tokens override alcohol/nightlife tokens.",
+    });
+
+    expect(classifyPlaceByRules({ displayName: "Hidden Cocktail Bar" })).toMatchObject({
       category: "Drink",
       confidence: "high",
       ruleId: "drink.alcohol",
+    });
+  });
+
+  it("guards non-alcohol bar phrases away from Drink", () => {
+    expect(classifyPlaceByRules({ displayName: "Fresh Juice Bar" })).toMatchObject({
+      category: "Snack",
+      ruleId: "snack.sweets.bakery",
+    });
+    expect(classifyPlaceByRules({ displayName: "Sushi Bar" })).toMatchObject({
+      category: "Food",
+      ruleId: "food.meal",
+    });
+  });
+
+  it("treats cafe alone as medium-confidence Snack", () => {
+    expect(classifyPlaceByRules({ displayName: "DUDU DUCK CAFE" })).toMatchObject({
+      category: "Snack",
+      confidence: "medium",
+      ruleId: "snack.sweets.bakery",
+    });
+  });
+
+  it("uses categorical notes as high-trust input while status notes abstain", () => {
+    expect(classifyPlaceByRules({
+      displayName: "Bangsar Village",
+      userNote: "Visited\nShopping mall",
+    })).toMatchObject({
+      category: "Shop",
+      ruleId: "shop.retail.note",
+      matchedOn: "note",
+    });
+
+    expect(classifyPlaceByRules({
+      displayName: "Unknown Place",
+      userNote: "Visited",
+    })).toMatchObject({
+      category: "Unsorted",
+      matchedOn: "none",
+    });
+
+    expect(classifyPlaceByRules({
+      displayName: "Hidden Cocktail Bar",
+      userNote: "Dim sum",
+    })).toMatchObject({
+      category: "Food",
+      ruleId: "food.meal.note",
+      matchedOn: "note",
     });
   });
 
@@ -51,7 +109,7 @@ describe("categoryRules", () => {
       displayName: "Somewhere",
       address: "Level 2, Heritage Mall",
     })).toMatchObject({
-      category: "See",
+      category: "Shop",
       confidence: "medium",
     });
 

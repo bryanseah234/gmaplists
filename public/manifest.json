@@ -1,7 +1,9 @@
 {
-  "name": "GMapList",
-  "short_name": "GMapList",
-  "description": "Organize your Google Maps lists.",
+  "name": "gmaplist",
+  "short_name": "gmaplist",
+  "description": "Mobile work queue for tagging collaborative Google Maps lists.",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-512x512.png",
@@ -28,7 +30,8 @@
       "purpose": "any"
     }
   ],
-  "theme_color": "#2563eb",
+  "theme_color": "#18181b",
   "background_color": "#ffffff",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "portrait"
 }

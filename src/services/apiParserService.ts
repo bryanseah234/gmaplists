@@ -1,4 +1,6 @@
 import { ExtractedData, Place, UIConfig } from "../types";
+import { resolveAutoTag } from "./autoTagService";
+import { assertContributorProfilesStrippedFromGetlist, stripContributorProfilesFromGetlist } from "./privacy";
 
 export function flattenAndFind(array: any[], predicate: (val: any) => boolean): any {
   const visit = (value: any): any => {
@@ -177,6 +179,8 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
   let data: any;
   try { data = JSON.parse(body); } catch { data = raw; }
   if (data && data.type === "GMAPLIST_DATA") data = data.data;
+  data = stripContributorProfilesFromGetlist(data);
+  assertContributorProfilesStrippedFromGetlist(data);
 
   const listTitle: string = data?.[0]?.[4] ?? "My List";
   const listUrl: string = data?.[0]?.[2]?.[2] ?? "";
@@ -210,14 +214,21 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
     const address = pickAddress(p, placeMeta, name);
     const businessStatus = asString(placeMeta.__businessStatus) ?? asString(placeMeta.business_status) ?? pickBusinessStatus(searchRoots);
     const featureId = featureIdFromListPlace(p);
+    const tag = resolveAutoTag({
+      place_name: name,
+      place_label: placeLabel,
+      address,
+      user_notes: userNote || undefined,
+      feature_id: featureId,
+    });
 
     const addedAt: number | undefined =
       Array.isArray(p[9]) && typeof p[9][0] === "number" ? p[9][0] : undefined;
 
     places.push({
       place_name: name,
-      primary_category: "Unsorted",
-      detailed_category: "Unknown",
+      primary_category: tag.category,
+      detailed_category: tag.detailedCategory,
       star_rating: rating,
       review_count: reviews,
       user_notes: userNote || undefined,
@@ -235,24 +246,15 @@ export function parseApiJson(raw: string, meta?: any[]): ExtractedData {
       feature_id: featureId,
       added_at: addedAt,
       is_override: false,
-      list_id: listId,
     });
   }
-
-  const seen = new Set<string>();
-  const uniquePlaces = places.filter(p => {
-    const key = p.feature_id ?? p.place_name;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 
   return {
     list_title: listTitle,
     list_source_url: listUrl,
     list_id: listId,
-    ui_config: buildUIConfig(uniquePlaces),
-    places: uniquePlaces,
+    ui_config: buildUIConfig(places),
+    places,
   };
 }
 
