@@ -1,35 +1,108 @@
 # Product Requirements Document (PRD)
 
 ## 1. Executive Summary
-This application is a privacy-first, client-side React Single Page Application (SPA) designed to transform raw Google Maps list data into a structured, drag-and-drop Kanban board. By utilizing an automated bookmarklet ingestion pipeline and robust regex-based text parsing, it solves the problem of organizing and categorizing hundreds of saved places without requiring users to manually copy, paste, or authenticate with external APIs.
 
-## 2. System Architecture
-The system operates entirely within the browser sandbox, consisting of four primary architectural pillars:
+gmaplist is a single-user decision aid for tagging collaborative Google Maps saved lists. Google Maps remains the source of truth for the real saved-list tags. This app exists because the Google Maps web `getlist` payload contains place membership but no per-list category/tag data, and there is no known write RPC for applying tags back to Google Maps.
 
-- **State Orchestration (`src/App.tsx`)**: The root React component manages global state, routing (URL list slugs), and cross-window communication. It listens for `postMessage` payloads from the external bookmarklet.
-- **Asynchronous Parsing Engine (`src/services/parser.worker.ts`)**: A dedicated WebWorker thread that intercepts raw JSON or pipe-separated strings. It executes heavy regex matching and object mapping off the main thread to guarantee 60FPS UI responsiveness during massive list ingestions.
-- **Drag-and-Drop Kanban Interface (`src/components/Kanban/`)**: Powered by `@dnd-kit/core`, this module renders the UI. It dynamically buckets places into hardcoded categories (Food, Snack, Drink, See, Shop, Unsorted) and tracks user-initiated overrides.
-- **Client Persistence Layer (`src/services/storageService.ts`)**: A differential storage engine built on `localStorage`. It persists parsed lists, records manual category overrides, and calculates diffs to notify users of "newly added places" since their last sync.
+The product goal is to remove judgment from the mobile tagging session. gmaplist suggests the category for each place, opens the place in Google Maps, and tracks the user's manual progress after the user tags the place in Maps.
 
-## 3. Feature Matrix
-### 3.1 Data Ingestion
-- **Bookmarklet Sync**: Seamless payload transfer via `window.opener.postMessage`, avoiding manual data entry.
-- **Manual Regex Parsing**: A fallback mechanism that digests unstructured clipboard text and extracts structured entities (Names, Star Ratings, Review Counts, URLs) using the `PLACE_PATTERN` regex matrix.
+## 2. Non-Goals
 
-### 3.2 Kanban Categorization & Overrides
-- **Heuristic Auto-Sorting**: Automatically assigns places to UI columns based on Google Canonical IDs (`gcid`) or an exhaustive keyword dictionary matching place names and types.
-- **Persistent Drag-and-Drop**: Users can manually drag a card from "Unsorted" to "Food". The `is_override` flag is activated and the decision is permanently saved to `localStorage`, surviving future syncs.
+- Do not read, infer, reconcile, or sync Google Maps tag state.
+- Do not write tags to Google Maps.
+- Do not build Google OAuth, Google Places API integration, Takeout import, CSV import, multi-user workflows, invitations, or shared accounts.
+- Do not make runtime classification API calls or ship model credentials.
 
-### 3.3 Differential Tracking
-- **Change Detection**: The system compares the timestamp of incoming list items against the `last_synced` metric in the persistence layer.
-- **Alert Banner**: Dynamically renders a UI banner notifying the user exactly how many new places were detected in the latest import.
+## 3. System Architecture
 
-## 4. Security & Performance
-- **Zero-Backend Architecture**: 100% of the application logic runs client-side. No databases, no auth tokens, and no server-side storage, eliminating the vast majority of PII leakage vectors.
-- **Determinism**: All Node dependencies are strictly pinned to exact semantic versions in `package.json` to prevent supply chain breaks.
-- **Main-Thread Isolation**: The transition of `apiParserService.ts` to a WebWorker entirely removes synchronous bottlenecks that previously froze the DOM during the processing of lists containing >500 items.
-- **CORS Independence**: The system relies on native browser capabilities and local regex to resolve shortened Google Maps links, having fully eliminated legacy reliance on insecure third-party proxy services (`api.allorigins.win`).
+- **Desktop Chrome extension (`extension/`)**: Captures one Google Maps saved list by observing `/maps/preview/entitylist/getlist`, strips contributor profile data at row index `[12]`, and forwards the stripped payload to the web app.
+- **Parser worker (`src/services/parser.worker.ts`)**: Parses the stripped getlist payload off the main thread. Parsed places start as `Unsorted`; category resolution happens later in one store path.
+- **Supabase data store (`src/services/gmaplistStore.ts`, `supabase/migrations/`)**: Persists lists, place cache rows, list membership, stored classifications, manual overrides, and per-list progress.
+- **Mobile queue (`src/components/Places/WorkQueueView.tsx`)**: Primary user surface. It shows unfinished places grouped by category in small batches, opens each place in Google Maps, and lets the user mark it done after tagging in Maps.
+- **PWA shell (`public/manifest.json`, `public/sw.js`)**: Allows home-screen use on the phone while preferring fresh deployed bundles.
 
-## 5. Non-Functional Requirements
-- **Storage Limits & Error Handling**: The persistence layer actively monitors `localStorage` quotas. If the 5MB browser limit is breached, the system throws a strict `StorageQuotaExceededError` that is caught and gracefully surfaced as an actionable UI banner, rather than silently dropping data.
-- **Test Coverage**: The critical parsing matrices and regex extractors are heavily documented and verified by a native `Vitest` unit testing suite, ensuring mapping logic remains stable across refactors.
+## 4. Data Model
+
+- `lists`: Google saved lists keyed by Google Maps list ID.
+- `places`: disposable global cache keyed by `feature_id`; a place can appear in many lists.
+- `list_items`: list membership keyed by `(list_id, feature_id)` with nullable `deleted_at`. Sync reconciles only the selected list.
+- `classifications`: stored category decisions keyed by `feature_id`, shared across all lists.
+- `overrides`: manual category corrections keyed by `feature_id` and scoped to the authenticated user.
+- `progress`: per-list done flags keyed by `(list_id, feature_id, user_id)`.
+
+Removing a place from a Google list sets `list_items.deleted_at`. Places, classifications, overrides, and progress are not cascade-deleted when list membership changes.
+
+## 5. Category Resolution
+
+Exactly one runtime path assigns the category shown in the queue:
+
+1. Manual override.
+2. Stored classification.
+3. Deterministic local rules.
+4. `Unsorted`.
+
+`src/data/tags.json` is only a one-time seed into `classifications` during sync. It is not a live category layer after a row exists in Supabase.
+
+## 6. Manual Classification Workflow
+
+For places still unresolved by overrides, stored classifications, and rules, the app generates a ready-to-paste prompt containing the authoritative category definitions plus each place's feature ID, name, label, address, and note. The user pastes that prompt into an external LLM manually, then pastes the returned JSON back into gmaplist.
+
+Import validation rejects:
+
+- invalid JSON or the wrong top-level shape;
+- feature IDs not in the current unclassified set;
+- unknown categories;
+- unknown confidence values;
+- missing reasons;
+- rows with manual overrides.
+
+## 7. Privacy Requirements
+
+The raw getlist payload can include contributor display names, avatar URLs, and Google account IDs at place row index `[12]`. That data must never reach Supabase, logs, or committed fixtures.
+
+Privacy enforcement exists at three boundaries:
+
+- the extension strips `[12]` before storage/broadcast;
+- the parser strips and asserts the boundary again before emitting app records;
+- the Supabase sync layer asserts outgoing place rows contain no contributor-like fields.
+
+`fixtures/` remains gitignored because raw captures can contain contributor data.
+
+## 8. Auth And Security
+
+Auth is Supabase email magic link, scoped to a single existing user. Public signups must stay disabled in Supabase.
+
+The frontend ships only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. The anon key is acceptable only with the current RLS posture:
+
+- unauthenticated users have no table policies;
+- authenticated users can read and write shared list/place/list-item/classification cache rows;
+- overrides and progress are restricted to rows where `user_id = auth.uid()`.
+
+Because shared cache rows are open to any authenticated user, enabling public signups would expose the data model to any new account.
+
+## 9. Sync Requirements
+
+Sync is per list. Opening or syncing one country list must never mark places absent from another list as deleted.
+
+The app must:
+
+- refuse signed-out syncs;
+- dedupe incoming places by `feature_id` before writes;
+- refuse payloads with missing `feature_id`;
+- warn before writing when incoming counts differ sharply from the previous successful sync;
+- surface Supabase errors in the UI with message, details, hint, and code when available;
+- preserve overrides and done flags across full resyncs, removals, and re-additions.
+
+The preferred sync implementation is the transactional `sync_gmaplist` RPC. Until that migration is applied, the deployed app falls back to the older chunked sync path.
+
+## 10. Verification Requirements
+
+Before release, `npm test` and `npm run build` must pass. Important regression coverage includes:
+
+- parser privacy stripping;
+- category rule precedence;
+- override and done survival through remove/re-add resync;
+- duplicate feature ID handling;
+- count-change warning;
+- manual classification import validation;
+- extension/app version marker alignment.

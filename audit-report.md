@@ -4,6 +4,14 @@ Date: 2026-08-09
 
 Scope: read-only audit of the current app after the Supabase/PWA/mobile queue rewrite. No product code was changed for this report.
 
+Current status note: several findings below have since been fixed in later commits.
+Guarded browser storage, missing-feature-ID refusal, app-side sync mutexing,
+stale-PWA mitigation, legacy Kanban/tagging cleanup, improved mobile queue
+ergonomics, and stricter manual-classification import tests are now present. The
+transactional Supabase sync RPC is implemented and committed as a pending
+migration, but it has not been applied to the remote database without explicit
+approval.
+
 ## Executive Summary
 
 The core data model is mostly aligned with the product: places and classifications are global by `feature_id`, list membership is per list, and progress is per list/user. The highest-risk gap is sync atomicity: `syncListToSupabase` performs many independent writes with no transaction, so a network/auth failure can leave partial remote state while the user only sees a generic error.
