@@ -108,7 +108,7 @@ function dedupeClassificationsByFeatureId(rows: ClassificationInput[]): Classifi
 }
 
 function shouldWarnAboutCount(previousCount: number, incomingCount: number): boolean {
-  if (previousCount === 0) return false;
+  if (previousCount === 0) return incomingCount > 500;
   const absoluteDelta = Math.abs(incomingCount - previousCount);
   const percentChange = absoluteDelta / previousCount;
   return absoluteDelta >= 25 && percentChange >= 0.25;
@@ -261,7 +261,9 @@ export async function getSyncCountWarning(data: { list_id: string; list_title: s
     incoming_count: incomingPlaces.length,
     incoming_unique_count: incomingUniqueCount,
     duplicate_count: incomingPlaces.length - incomingUniqueCount,
-    percent_change: Math.round((Math.abs(incomingPlaces.length - previousCount) / previousCount) * 100),
+    percent_change: previousCount === 0
+      ? 100
+      : Math.round((Math.abs(incomingPlaces.length - previousCount) / previousCount) * 100),
   };
 }
 

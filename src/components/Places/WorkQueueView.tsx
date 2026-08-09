@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Check, Clipboard, ExternalLink, Filter, Loader2, Save, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clipboard, ExternalLink, Filter, Loader2, Save, Search } from "lucide-react";
 import { COLUMNS, ListSummary, Place } from "../../types";
 import {
   buildClassificationPrompt,
@@ -58,6 +58,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   const [preview, setPreview] = useState<ClassificationPreview | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [showImportPanel, setShowImportPanel] = useState(false);
 
   const selectedList = lists.find((list) => list.list_id === selectedListId);
   const remaining = places.filter((place) => !place.done);
@@ -87,6 +88,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
     }
     return map;
   }, [visiblePlaces]);
+  const hasVisibleWork = visiblePlaces.length > 0;
 
   async function copyPrompt(scope: "current" | "all") {
     setBusy(`prompt-${scope}`);
@@ -185,60 +187,66 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
         </div>
       </section>
 
-      <section className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-950 dark:text-white">Unclassified prompt</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Manual copy-paste only. No model call is made by this app.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => copyPrompt("current")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
-              {busy === "prompt-current" ? <Loader2 size={14} className="animate-spin" /> : <Clipboard size={14} />}
-              {copied === "prompt-current" ? "Copied" : "Current list"}
-            </button>
-            <button onClick={() => copyPrompt("all")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
-              {busy === "prompt-all" ? <Loader2 size={14} className="animate-spin" /> : <Clipboard size={14} />}
-              {copied === "prompt-all" ? "Copied" : "All lists"}
-            </button>
-          </div>
-        </div>
-        <div className="mt-3 grid gap-2">
-          <div className="flex gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-            <label><input type="radio" checked={importScope === "current"} onChange={() => setImportScope("current")} /> Current list</label>
-            <label><input type="radio" checked={importScope === "all"} onChange={() => setImportScope("all")} /> All lists</label>
-          </div>
-          <textarea
-            value={importText}
-            onChange={(event) => setImportText(event.target.value)}
-            placeholder="Paste strict JSON here to preview before saving"
-            className="min-h-28 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-950 outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
-          />
-          <div className="flex flex-wrap gap-2">
-            <button onClick={previewImport} disabled={!importText.trim() || busy === "preview"} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-zinc-950">
-              {busy === "preview" ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-              Preview import
-            </button>
-            <button onClick={savePreview} disabled={!preview?.accepted.length || busy === "save"} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50">
-              {busy === "save" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save accepted
-            </button>
-          </div>
-          {preview && (
-            <div className="grid gap-1 rounded-md bg-zinc-50 p-2 text-xs dark:bg-zinc-950">
-              <div className="font-semibold text-zinc-900 dark:text-white">{preview.accepted.length} accepted, {preview.rejected.length} rejected</div>
-              {preview.rejected.slice(0, 5).map((item, index) => (
-                <div key={`${item.feature_id ?? "entry"}-${index}`} className="text-red-600 dark:text-red-300">
-                  {item.feature_id ?? "entry"}: {item.reason}
-                </div>
-              ))}
+      <section className="rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <button
+          onClick={() => setShowImportPanel((value) => !value)}
+          className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left"
+        >
+          <span>
+            <span className="block text-sm font-semibold text-zinc-950 dark:text-white">Unclassified prompt</span>
+            <span className="block text-xs text-zinc-500 dark:text-zinc-400">Copy-paste classification tools</span>
+          </span>
+          {showImportPanel ? <ChevronDown size={16} className="text-zinc-400" /> : <ChevronRight size={16} className="text-zinc-400" />}
+        </button>
+        {showImportPanel && (
+          <div className="grid gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => copyPrompt("current")} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
+                {busy === "prompt-current" ? <Loader2 size={14} className="animate-spin" /> : <Clipboard size={14} />}
+                {copied === "prompt-current" ? "Copied" : "Current list"}
+              </button>
+              <button onClick={() => copyPrompt("all")} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
+                {busy === "prompt-all" ? <Loader2 size={14} className="animate-spin" /> : <Clipboard size={14} />}
+                {copied === "prompt-all" ? "Copied" : "All lists"}
+              </button>
             </div>
-          )}
-          {importError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
-              {importError}
+            <div className="flex gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label><input type="radio" checked={importScope === "current"} onChange={() => setImportScope("current")} /> Current list</label>
+              <label><input type="radio" checked={importScope === "all"} onChange={() => setImportScope("all")} /> All lists</label>
             </div>
-          )}
-        </div>
+            <textarea
+              value={importText}
+              onChange={(event) => setImportText(event.target.value)}
+              placeholder="Paste strict JSON here to preview before saving"
+              className="min-h-28 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-950 outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button onClick={previewImport} disabled={!importText.trim() || busy === "preview"} className="inline-flex h-11 items-center gap-1.5 rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-zinc-950">
+                {busy === "preview" ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                Preview import
+              </button>
+              <button onClick={savePreview} disabled={!preview?.accepted.length || busy === "save"} className="inline-flex h-11 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50">
+                {busy === "save" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Save accepted
+              </button>
+            </div>
+            {preview && (
+              <div className="grid gap-1 rounded-md bg-zinc-50 p-2 text-xs dark:bg-zinc-950">
+                <div className="font-semibold text-zinc-900 dark:text-white">{preview.accepted.length} accepted, {preview.rejected.length} rejected</div>
+                {preview.rejected.slice(0, 5).map((item, index) => (
+                  <div key={`${item.feature_id ?? "entry"}-${index}`} className="text-red-600 dark:text-red-300">
+                    {item.feature_id ?? "entry"}: {item.reason}
+                  </div>
+                ))}
+              </div>
+            )}
+            {importError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+                {importError}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {CATEGORY_ORDER.map((category) => {
@@ -287,6 +295,17 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
           </section>
         );
       })}
+
+      {!hasVisibleWork && (
+        <section className="rounded-lg border border-zinc-200 bg-white p-5 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm font-bold text-zinc-950 dark:text-white">
+            {remaining.length === 0 ? "All done for this list." : "No places match this filter."}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {remaining.length === 0 ? "Switch lists or sync again when Google Maps changes." : "Clear search or switch category."}
+          </p>
+        </section>
+      )}
     </div>
   );
 };

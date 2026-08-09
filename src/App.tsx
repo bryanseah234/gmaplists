@@ -456,7 +456,9 @@ export default function App() {
           <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
             <p className="font-bold">Sync count changed sharply. No data has been written for this payload.</p>
             <p className="mt-1">
-              Last successful sync for {pendingSync.warning.list_title} had {pendingSync.warning.previous_count} active places.
+              {pendingSync.warning.previous_count > 0
+                ? `Last successful sync for ${pendingSync.warning.list_title} had ${pendingSync.warning.previous_count} active places.`
+                : `There is no previous successful sync for ${pendingSync.warning.list_title}, and this first payload is unusually large.`}
               This payload has {pendingSync.warning.incoming_count} places ({pendingSync.warning.incoming_unique_count} unique, {pendingSync.warning.duplicate_count} duplicates),
               a {pendingSync.warning.percent_change}% change.
             </p>
@@ -519,11 +521,6 @@ export default function App() {
           </div>
         ) : (
           <div className="flex min-h-[calc(100vh-80px)] items-start justify-center pt-16">
-            <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} appVersion={APP_VERSION} expectedExtensionVersion={EXPECTED_EXTENSION_VERSION} />
-          </div>
-        )}
-        {session && lists.length === 0 && !data && (
-          <div className="mt-6">
             <InputSection isReceiving={isReceiving} extensionStatus={extensionStatus} appVersion={APP_VERSION} expectedExtensionVersion={EXPECTED_EXTENSION_VERSION} />
           </div>
         )}

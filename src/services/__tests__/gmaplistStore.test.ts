@@ -264,4 +264,23 @@ describe("gmaplistStore resync behavior", () => {
       percent_change: 40,
     }));
   });
+
+  it("warns before an unusually large first sync when there is no previous count", async () => {
+    const { getSyncCountWarning } = await import("../gmaplistStore");
+
+    const warning = await getSyncCountWarning({
+      list_id: "list-malaysia",
+      list_title: "Malaysia spots",
+      places: Array.from({ length: 501 }, (_, index) => place(`feature-${index}`, `Place ${index}`)),
+    });
+
+    expect(warning).toEqual(expect.objectContaining({
+      list_id: "list-malaysia",
+      previous_count: 0,
+      incoming_count: 501,
+      incoming_unique_count: 501,
+      duplicate_count: 0,
+      percent_change: 100,
+    }));
+  });
 });
