@@ -167,11 +167,20 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
 
   async function copyPrompt(scope: "current" | "all") {
     setBusy(`prompt-${scope}`);
+    setImportError(null);
     try {
       const unclassified = await loadUnclassifiedPlaces(scope === "current" ? selectedListId : undefined);
+      if (unclassified.length === 0) {
+        setCopied(null);
+        setImportError(scope === "current" ? "No unclassified places in this list." : "No unclassified places across any synced list.");
+        return;
+      }
       await navigator.clipboard.writeText(buildClassificationPrompt(unclassified));
       setCopied(`prompt-${scope}`);
       window.setTimeout(() => setCopied(null), 1800);
+    } catch (error) {
+      setCopied(null);
+      setImportError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }
@@ -194,11 +203,14 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   async function savePreview() {
     if (!preview?.accepted.length) return;
     setBusy("save");
+    setImportError(null);
     try {
       await saveClassifications(preview.accepted);
       setImportText("");
       setPreview(null);
       await onRefresh();
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(null);
     }
