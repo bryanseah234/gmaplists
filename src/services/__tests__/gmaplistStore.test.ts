@@ -418,6 +418,40 @@ describe("gmaplistStore resync behavior", () => {
     ]));
   });
 
+  it("loads only places with no override, classification, or rule category for manual classification", async () => {
+    const {
+      loadUnclassifiedPlaces,
+      saveCategoryOverride,
+      syncListToSupabase,
+    } = await import("../gmaplistStore");
+
+    await syncListToSupabase({
+      list_id: "list-malaysia",
+      list_title: "Malaysia spots",
+      places: [
+        place("feature-rule", "Latibule Coffee"),
+        place("feature-classified", "Stored Decision"),
+        place("feature-override", "Manual Decision"),
+        place("feature-unsorted", "Xqzv Nopq"),
+      ],
+    });
+    mockDb.tables.classifications.push({
+      feature_id: "feature-classified",
+      category: "See",
+      confidence: "medium",
+      reason: "Existing classification.",
+      classified_at: "2026-01-01T00:00:00.000Z",
+    });
+    await saveCategoryOverride("feature-override", "Shop");
+
+    expect(await loadUnclassifiedPlaces("list-malaysia")).toEqual([
+      expect.objectContaining({
+        feature_id: "feature-unsorted",
+        place_name: "Xqzv Nopq",
+      }),
+    ]);
+  });
+
   it("dedupes repeated pasted classifications and keeps the last entry when saving", async () => {
     const { saveClassifications } = await import("../gmaplistStore");
 

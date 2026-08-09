@@ -447,7 +447,12 @@ export async function loadUnclassifiedPlaces(scopeListId?: string): Promise<Plac
   const ids = [...new Set((items ?? []).map((row) => row.feature_id as string).filter((id) => !classified.has(id)))];
   if (ids.length === 0) return [];
 
-  const places = await selectByIds<any>("places", ids, "feature_id,name,place_label,address,lat,lng,note");
+  const overrides = await selectByIds<DbOverride>("overrides", ids, "feature_id,category");
+  const overrideIds = new Set(overrides.map((row) => row.feature_id));
+  const candidateIds = ids.filter((id) => !overrideIds.has(id));
+  if (candidateIds.length === 0) return [];
+
+  const places = await selectByIds<any>("places", candidateIds, "feature_id,name,place_label,address,lat,lng,note");
   return places.map((row) => ({
     feature_id: row.feature_id,
     place_name: row.name,
@@ -462,7 +467,14 @@ export async function loadUnclassifiedPlaces(scopeListId?: string): Promise<Plac
     star_rating: 0,
     review_count: 0,
     is_override: false,
-  })).sort((a, b) => a.place_name.localeCompare(b.place_name));
+  }))
+    .filter((place) => classifyPlaceByRules({
+      displayName: place.place_name,
+      placeLabel: place.place_label,
+      address: place.address,
+      userNote: place.user_notes,
+    }).category === "Unsorted")
+    .sort((a, b) => a.place_name.localeCompare(b.place_name));
 }
 
 export async function previewClassificationImport(rawText: string, allowedPlaces: Place[]): Promise<ClassificationPreview> {
