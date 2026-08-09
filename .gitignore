@@ -44,8 +44,11 @@ fixtures/
 !.npmrc
 !.yarnrc
 !.yarnrc.yml
+!.sourcery.yml
+!.deepsource.toml
+
+.vercel
+.env*
 !.env.example
 !.env.template
 !.env.sample
-!.sourcery.yml
-!.deepsource.toml
