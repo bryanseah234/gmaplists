@@ -36,13 +36,13 @@ create table if not exists public.overrides (
   feature_id text primary key references public.places(feature_id) on delete restrict,
   category text not null check (category in ('Food', 'Snack', 'Drink', 'See', 'Shop', 'Unsorted')),
   updated_at timestamptz not null default now(),
-  user_id uuid not null default (select auth.uid()) references auth.users(id) on delete cascade
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade
 );
 
 create table if not exists public.progress (
   list_id text not null references public.lists(list_id) on delete restrict,
   feature_id text not null references public.places(feature_id) on delete restrict,
-  user_id uuid not null default (select auth.uid()) references auth.users(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   done boolean not null default false,
   done_at timestamptz,
   primary key (list_id, feature_id, user_id)
