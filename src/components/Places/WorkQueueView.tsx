@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Clipboard, ExternalLink, Filter, Loader2, Save, Search } from "lucide-react";
 import { COLUMNS, ListSummary, Place } from "../../types";
 import {
@@ -9,6 +9,7 @@ import {
   saveClassifications,
 } from "../../services/gmaplistStore";
 import { AutoTagCategory } from "../../services/categoryRules";
+import { readStorage, writeStorage } from "../../services/browserStorage";
 
 interface WorkQueueViewProps {
   lists: ListSummary[];
@@ -23,6 +24,31 @@ interface WorkQueueViewProps {
 const CATEGORY_ORDER = COLUMNS.map((column) => column.id);
 const CATEGORY_LABELS = new Map(COLUMNS.map((column) => [column.id, column]));
 const BATCH_SIZE = 10;
+
+type QueueUiState = {
+  categoryFilter: string;
+  query: string;
+};
+
+function queueStorageKey(listId: string): string {
+  return `gmaplist-queue:${listId || "none"}`;
+}
+
+function loadQueueState(listId: string): QueueUiState {
+  const raw = readStorage(queueStorageKey(listId));
+  if (!raw) return { categoryFilter: "All", query: "" };
+  try {
+    const parsed = JSON.parse(raw) as Partial<QueueUiState>;
+    const categoryFilter = typeof parsed.categoryFilter === "string" ? parsed.categoryFilter : "All";
+    const query = typeof parsed.query === "string" ? parsed.query : "";
+    return {
+      categoryFilter: categoryFilter === "All" || CATEGORY_LABELS.has(categoryFilter) ? categoryFilter : "All",
+      query,
+    };
+  } catch {
+    return { categoryFilter: "All", query: "" };
+  }
+}
 
 function mapsLink(place: Place): string {
   if (place.google_maps_link) return place.google_maps_link;
@@ -50,8 +76,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   onCategoryChange,
   onRefresh,
 }) => {
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [query, setQuery] = useState("");
+  const [queueState, setQueueState] = useState<QueueUiState>(() => loadQueueState(selectedListId));
   const [copied, setCopied] = useState<string | null>(null);
   const [importText, setImportText] = useState("");
   const [importScope, setImportScope] = useState<"current" | "all">("current");
@@ -59,6 +84,14 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   const [busy, setBusy] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [rowBusy, setRowBusy] = useState<Record<string, string>>({});
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const { categoryFilter, query } = queueState;
+
+  useEffect(() => {
+    setQueueState(loadQueueState(selectedListId));
+    setRowErrors({});
+  }, [selectedListId]);
 
   const selectedList = lists.find((list) => list.list_id === selectedListId);
   const remaining = places.filter((place) => !place.done);
@@ -89,6 +122,38 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
     return map;
   }, [visiblePlaces]);
   const hasVisibleWork = visiblePlaces.length > 0;
+
+  function updateQueueState(next: QueueUiState) {
+    setQueueState(next);
+    writeStorage(queueStorageKey(selectedListId), JSON.stringify(next));
+  }
+
+  async function runRowAction(featureId: string | undefined, label: string, action: (id: string) => Promise<void>) {
+    if (!featureId) {
+      setRowErrors((prev) => ({ ...prev, missing: "This place is missing feature_id and cannot be saved." }));
+      return;
+    }
+    setRowBusy((prev) => ({ ...prev, [featureId]: label }));
+    setRowErrors((prev) => {
+      const next = { ...prev };
+      delete next[featureId];
+      return next;
+    });
+    try {
+      await action(featureId);
+    } catch (error) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [featureId]: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      setRowBusy((prev) => {
+        const next = { ...prev };
+        delete next[featureId];
+        return next;
+      });
+    }
+  }
 
   async function copyPrompt(scope: "current" | "all") {
     setBusy(`prompt-${scope}`);
@@ -165,7 +230,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
           {["All", ...CATEGORY_ORDER].map((category) => (
             <button
               key={category}
-              onClick={() => setCategoryFilter(category)}
+              onClick={() => updateQueueState({ ...queueState, categoryFilter: category })}
               className={`h-9 shrink-0 rounded-full px-3 text-sm font-semibold ${
                 categoryFilter === category
                   ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
@@ -180,7 +245,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
           <Search size={16} className="text-zinc-400" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => updateQueueState({ ...queueState, query: event.target.value })}
             placeholder="Search this queue"
             className="min-w-0 flex-1 bg-transparent text-sm text-zinc-950 outline-none dark:text-white"
           />
@@ -262,8 +327,12 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
               <span className="text-xs font-semibold text-zinc-500">{grouped[category].length} remain · showing {items.length}</span>
             </div>
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {items.map((place) => (
-                <article key={place.feature_id ?? place.place_name} className="grid gap-2 p-3">
+              {items.map((place) => {
+                const featureId = place.feature_id;
+                const isRowBusy = Boolean(featureId && rowBusy[featureId]);
+                const rowError = featureId ? rowErrors[featureId] : rowErrors.missing;
+                return (
+                <article key={featureId ?? place.place_name} className="grid gap-2 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <a href={mapsLink(place)} target="_blank" rel="noreferrer" className="min-w-0 text-base font-semibold leading-snug text-zinc-950 underline-offset-2 hover:underline dark:text-white">
                       {place.place_name}
@@ -276,21 +345,29 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <select
                       value={CATEGORY_LABELS.has(place.primary_category) ? place.primary_category : "Unsorted"}
-                      onChange={(event) => onCategoryChange(place.feature_id!, event.target.value as AutoTagCategory)}
+                      disabled={isRowBusy}
+                      onChange={(event) => runRowAction(featureId, "category", (id) => onCategoryChange(id, event.target.value as AutoTagCategory))}
                       className="h-10 min-w-0 flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-sm font-semibold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                     >
                       {COLUMNS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                     </select>
                     <button
-                      onClick={() => onDoneChange(place.feature_id!, true)}
-                      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white"
+                      disabled={isRowBusy}
+                      onClick={() => runRowAction(featureId, "done", (id) => onDoneChange(id, true))}
+                      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60"
                     >
-                      <Check size={15} />
-                      Done
+                      {isRowBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                      {rowBusy[featureId ?? ""] === "done" ? "Saving" : "Done"}
                     </button>
                   </div>
+                  {rowError && (
+                    <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+                      {rowError}
+                    </p>
+                  )}
                 </article>
-              ))}
+                );
+              })}
             </div>
           </section>
         );

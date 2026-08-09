@@ -241,6 +241,23 @@ describe("gmaplistStore resync behavior", () => {
     ]));
   });
 
+  it("refuses to sync any payload with places missing feature ids before writing", async () => {
+    const { syncListToSupabase } = await import("../gmaplistStore");
+
+    await expect(syncListToSupabase({
+      list_id: "list-malaysia",
+      list_title: "Malaysia spots",
+      places: [
+        place("feature-a", "A Bar"),
+        { ...place("feature-missing", "Missing ID"), feature_id: undefined },
+      ],
+    })).rejects.toThrow("missing feature_id");
+
+    expect(mockDb.tables.lists).toHaveLength(0);
+    expect(mockDb.tables.places).toHaveLength(0);
+    expect(mockDb.tables.list_items).toHaveLength(0);
+  });
+
   it("warns before writing when incoming count differs sharply from the active list count", async () => {
     const { getSyncCountWarning, syncListToSupabase } = await import("../gmaplistStore");
     const list = { list_id: "list-malaysia", list_title: "Malaysia spots" };

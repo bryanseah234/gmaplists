@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { LogOut, Mail, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 
 import { WorkQueueView } from "./components/Places/WorkQueueView";
 import { InputSection } from "./components/UI/InputSection";
 import { APP_VERSION, EXPECTED_EXTENSION_VERSION } from "./config/version";
+import { readStorage, writeStorage } from "./services/browserStorage";
 import { AutoTagCategory } from "./services/categoryRules";
 import {
   getSyncCountWarning,
@@ -19,6 +20,9 @@ import { isSupabaseConfigured, supabase } from "./services/supabaseClient";
 import { ExtractedData, ListSummary, Place } from "./types";
 
 type Theme = "light" | "dark" | "system";
+
+const THEME_STORAGE_KEY = "maplist-theme";
+const SELECTED_LIST_STORAGE_KEY = "gmaplist-selected-list";
 
 type IncomingMapsPayload = {
   data: unknown;
@@ -43,6 +47,12 @@ type ExtensionLogEntry = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getPathListId(): string {
+  if (typeof window === "undefined") return "";
+  const slug = window.location.pathname.replace(/^\//, "").trim();
+  return slug && slug.length > 10 ? decodeURIComponent(slug) : "";
 }
 
 function normalizeExtensionStatus(message: unknown): ExtensionStatus | null {
@@ -103,10 +113,12 @@ export default function App() {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
   const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning } | null>(null);
+  const [syncingListId, setSyncingListId] = useState<string | null>(null);
+  const syncInFlightRef = useRef<string | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== "undefined"
-      ? (localStorage.getItem("maplist-theme") as Theme) || "system"
+      ? (readStorage(THEME_STORAGE_KEY) as Theme) || "system"
       : "system"
   );
 
@@ -116,7 +128,7 @@ export default function App() {
       next === "dark" ? root.classList.add("dark") : root.classList.remove("dark");
     if (theme === "system") apply(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     else apply(theme);
-    localStorage.setItem("maplist-theme", theme);
+    writeStorage(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   const refreshLists = useCallback(async (preferredListId?: string) => {
@@ -124,8 +136,13 @@ export default function App() {
     const nextLists = await loadListSummaries();
     setLists(nextLists);
 
-    const nextSelected = preferredListId || selectedListId || nextLists[0]?.list_id || "";
+    const savedListId = readStorage(SELECTED_LIST_STORAGE_KEY) ?? "";
+    const candidateListId = preferredListId || selectedListId || getPathListId() || savedListId;
+    const nextSelected = nextLists.some((list) => list.list_id === candidateListId)
+      ? candidateListId
+      : nextLists[0]?.list_id || "";
     setSelectedListId(nextSelected);
+    if (nextSelected) writeStorage(SELECTED_LIST_STORAGE_KEY, nextSelected);
     if (!nextSelected) return;
 
     const listPlaces = await loadPlacesForList(nextSelected);
@@ -242,6 +259,12 @@ export default function App() {
         setError("Sign in before syncing. The captured Maps payload was not saved.");
         return;
       }
+      if (syncInFlightRef.current) {
+        setError(`A sync for ${syncInFlightRef.current} is already running. Wait for it to finish before opening another Maps list.`);
+        return;
+      }
+      syncInFlightRef.current = result.list_id;
+      setSyncingListId(result.list_id);
       const warning = await getSyncCountWarning(result);
       if (warning) {
         setPendingSync({ data: result, warning });
@@ -253,12 +276,21 @@ export default function App() {
       await refreshLists(result.list_id);
     } catch (err) {
       setError(formatError(err, "Sync"));
+    } finally {
+      syncInFlightRef.current = null;
+      setSyncingListId(null);
     }
   }, [formatError, refreshLists, session]);
 
   const confirmPendingSync = useCallback(async () => {
     if (!pendingSync) return;
+    if (syncInFlightRef.current) {
+      setError(`A sync for ${syncInFlightRef.current} is already running. Wait for it to finish before confirming another payload.`);
+      return;
+    }
     setIsLoading(true);
+    syncInFlightRef.current = pendingSync.data.list_id;
+    setSyncingListId(pendingSync.data.list_id);
     try {
       await syncListToSupabase(pendingSync.data);
       setNewPlacesCount(pendingSync.data.places.length);
@@ -267,6 +299,8 @@ export default function App() {
     } catch (err) {
       setError(formatError(err, "Confirmed sync"));
     } finally {
+      syncInFlightRef.current = null;
+      setSyncingListId(null);
       setIsLoading(false);
     }
   }, [formatError, pendingSync, refreshLists]);
@@ -320,15 +354,20 @@ export default function App() {
         setError(null);
 
         const worker = new Worker(new URL("./services/parser.worker.ts", import.meta.url), { type: "module" });
-        worker.onmessage = (workerEvent) => {
+        worker.onmessage = async (workerEvent) => {
           if (workerEvent.data.action === "PARSE_COMPLETE") {
-            ingestData(workerEvent.data.data);
-            pushListUrl(workerEvent.data.data.list_id);
+            try {
+              await ingestData(workerEvent.data.data);
+              pushListUrl(workerEvent.data.data.list_id);
+            } finally {
+              setIsLoading(false);
+              worker.terminate();
+            }
           } else if (workerEvent.data.action === "PARSE_ERROR") {
             setError(workerEvent.data.error);
+            setIsLoading(false);
+            worker.terminate();
           }
-          setIsLoading(false);
-          worker.terminate();
         };
         worker.onerror = (err) => {
           setError("Worker error: " + err.message);
@@ -359,6 +398,7 @@ export default function App() {
       await refreshLists(selectedListId);
     } catch (err) {
       setError(formatError(err, "Saving category override"));
+      throw err;
     }
   }, [formatError, refreshLists, selectedListId]);
 
@@ -370,12 +410,15 @@ export default function App() {
       await refreshLists(selectedListId);
     } catch (err) {
       setError(formatError(err, "Saving progress"));
+      throw err;
     }
   }, [formatError, refreshLists, selectedListId]);
 
   const handleSelectList = useCallback(async (listId: string) => {
     try {
       setSelectedListId(listId);
+      writeStorage(SELECTED_LIST_STORAGE_KEY, listId);
+      pushListUrl(listId);
       const listPlaces = await loadPlacesForList(listId);
       const list = lists.find((item) => item.list_id === listId);
       setPlaces(listPlaces);
@@ -389,7 +432,7 @@ export default function App() {
     } catch (err) {
       setError(formatError(err, "Loading list"));
     }
-  }, [formatError, lists]);
+  }, [formatError, lists, pushListUrl]);
 
   const handleReset = () => {
     setData(null);
@@ -442,6 +485,7 @@ export default function App() {
             <div className="rounded-lg bg-white p-6 shadow-2xl dark:bg-zinc-900">
               <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-950 dark:border-zinc-700 dark:border-t-white" />
               <p className="mt-4 text-center text-sm font-semibold text-zinc-900 dark:text-white">Syncing list...</p>
+              {syncingListId && <p className="mt-1 text-center text-xs text-zinc-500 dark:text-zinc-400">{syncingListId}</p>}
             </div>
           </div>
         )}

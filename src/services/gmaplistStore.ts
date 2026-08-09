@@ -101,6 +101,16 @@ function dedupePlacesByFeatureId(places: Place[]): Place[] {
   return [...byFeatureId.values()];
 }
 
+function assertAllPlacesHaveFeatureIds(places: Place[]): void {
+  const missing = places.filter((place) => !place.feature_id);
+  if (missing.length === 0) return;
+  const names = missing
+    .slice(0, 5)
+    .map((place) => place.place_name || place.place_label || place.address || "unnamed place")
+    .join(", ");
+  throw new Error(`Sync refused before writing: ${missing.length} places are missing feature_id. Examples: ${names}. Reload Maps and capture the list again.`);
+}
+
 function dedupeClassificationsByFeatureId(rows: ClassificationInput[]): ClassificationInput[] {
   const byFeatureId = new Map<string, ClassificationInput>();
   for (const row of rows) byFeatureId.set(row.feature_id, row);
@@ -169,6 +179,7 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
   await requireSignedInUserId();
   const client = requireSupabase();
   const now = new Date().toISOString();
+  assertAllPlacesHaveFeatureIds(data.places);
   const places = dedupePlacesByFeatureId(data.places);
 
   const placeRows = places.map(toPlaceRow);
