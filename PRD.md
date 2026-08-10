@@ -2,9 +2,9 @@
 
 ## 1. Executive Summary
 
-gmaplists is a single-user decision aid for tagging collaborative Google Maps saved lists. Google Maps remains the source of truth for the real saved-list tags. This app exists because the Google Maps web `getlist` payload contains place membership but no per-list category/tag data, and there is no known write RPC for applying tags back to Google Maps.
+GMapLists is a single-user decision aid for tagging collaborative Google Maps saved lists. Google Maps remains the source of truth for the real saved-list tags. This app exists because the Google Maps web `getlist` payload contains place membership but no per-list category/tag data, and there is no known write RPC for applying tags back to Google Maps.
 
-The product goal is to remove judgment from the mobile tagging session. gmaplists suggests the category for each place, opens the place in Google Maps, and tracks the user's manual progress after the user tags the place in Maps.
+The product goal is to remove judgment from the mobile tagging session. GMapLists suggests the category for each place, opens the place in Google Maps, and tracks the user's manual progress after the user tags the place in Maps.
 
 ## 2. Non-Goals
 
@@ -45,7 +45,7 @@ Exactly one runtime path assigns the category shown in the queue:
 
 ## 6. Manual Classification Workflow
 
-For places still unresolved by overrides, stored classifications, and rules, the app generates a ready-to-paste prompt containing the authoritative category definitions plus each place's feature ID, name, label, address, and note. The user pastes that prompt into an external LLM manually, then pastes the returned JSON back into gmaplists.
+For places still unresolved by overrides, stored classifications, and rules, the app generates a ready-to-paste prompt containing the authoritative category definitions plus each place's feature ID, name, label, address, and note. The user pastes that prompt into an external LLM manually, then pastes the returned JSON back into GMapLists.
 
 Import validation rejects:
 

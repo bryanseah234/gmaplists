@@ -134,7 +134,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 <MapIcon size={22} strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">gmaplists</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">GMapLists</h1>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Sync one Google Maps list, review suggested categories, then open each place for mobile tagging.
                 </p>
@@ -243,7 +243,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
       <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <p className="text-sm font-semibold text-zinc-950 dark:text-white">Need the logs?</p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          Click the gmaplists extension icon. The popup now shows the status pill, current progress, and the latest extension logs.
+          Click the GMapLists extension icon. The popup now shows the status pill, current progress, and the latest extension logs.
         </p>
       </section>
     </div>

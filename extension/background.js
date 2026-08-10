@@ -369,7 +369,7 @@ async function validateCaptureIntent(getlistUrl, tabId) {
 
   if (!intent || Date.now() - Number(intent.createdAt || 0) > CAPTURE_INTENT_TTL_MS) {
     addDebugLog("warn", "Ignored getlist without active capture intent", summarizeUrl(getlistUrl));
-    broadcastStatus("ignored", "Ignored a Maps list request because no capture was started from gmaplists. Open the list from the app or extension popup, then try again.", {
+    broadcastStatus("ignored", "Ignored a Maps list request because no capture was started from GMapLists. Open the list from the app or extension popup, then try again.", {
       ...summarizeUrl(getlistUrl),
       observedTabId: tabId,
     });
@@ -378,7 +378,7 @@ async function validateCaptureIntent(getlistUrl, tabId) {
 
   if (typeof intent.tabId === "number" && typeof tabId === "number" && tabId >= 0 && intent.tabId !== tabId) {
     addDebugLog("warn", "Ignored getlist from non-intended tab", { intent, observedTabId: tabId, observedListId });
-    broadcastStatus("ignored", "Ignored a Maps list request from a different tab than the one gmaplists opened.", {
+    broadcastStatus("ignored", "Ignored a Maps list request from a different tab than the one GMapLists opened.", {
       expectedTabId: intent.tabId,
       observedTabId: tabId,
       expectedListId: intent.listId,
@@ -389,7 +389,7 @@ async function validateCaptureIntent(getlistUrl, tabId) {
 
   if (intent.listId && observedListId && intent.listId !== observedListId) {
     addDebugLog("warn", "Ignored getlist for unexpected list", { expectedListId: intent.listId, observedListId });
-    broadcastStatus("ignored", "Ignored a Maps list request for a different saved list than the one you opened from gmaplists.", {
+    broadcastStatus("ignored", "Ignored a Maps list request for a different saved list than the one you opened from GMapLists.", {
       expectedListId: intent.listId,
       observedListId,
     });
@@ -482,7 +482,7 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
     });
     broadcastStatus("error", "Google Maps extraction failed.", {
       error: error instanceof Error ? error.message : String(error),
-      recovery: "Reload the extension if needed, then open the exact Maps list from the gmaplists app or popup again.",
+      recovery: "Reload the extension if needed, then open the exact Maps list from the GMapLists app or popup again.",
     });
   }
 }
@@ -550,7 +550,7 @@ chrome.webRequest.onBeforeRedirect.addListener(
     });
 
     addDebugLog("info", "Stored short URL redirect", { listId, redirectUrl });
-    console.info("[gmaplists] stored short URL redirect", { listId, redirectUrl });
+    console.info("[GMapLists] stored short URL redirect", { listId, redirectUrl });
   },
   {
     urls: ["*://maps.app.goo.gl/*"],
@@ -695,7 +695,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const sanitized = sanitizePayload(message.payload);
   chrome.storage.local.set({ [LATEST_PAYLOAD_KEY]: sanitized }, () => {
     addDebugLog("info", "Stored captured payload", sanitized.diagnostics);
-    console.info("[gmaplists] stored captured payload", sanitized.diagnostics);
+    console.info("[GMapLists] stored captured payload", sanitized.diagnostics);
     broadcastToApp(sanitized);
     sendResponse({ ok: true });
   });

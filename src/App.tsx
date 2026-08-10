@@ -203,7 +203,7 @@ export default function App() {
   }, [selectedListId, session]);
 
   const formatError = useCallback((err: unknown, action: string): string => {
-    console.error(`[gmaplists] ${action} failed`, err);
+    console.error(`[GMapLists] ${action} failed`, err);
     if (err && typeof err === "object") {
       const values = err as Record<string, unknown>;
       const status = typeof values.status === "number" ? values.status : undefined;
@@ -563,7 +563,7 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
         <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-3 px-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">gmaplists</span>
+            <span className="shrink-0 text-sm font-bold tracking-tight text-zinc-900 dark:text-white">GMapLists</span>
             {data && <span className="truncate text-xs text-zinc-400">{data.list_title}</span>}
             <span className={`shrink-0 text-[10px] font-semibold ${hasExtensionVersionMismatch ? "text-amber-600 dark:text-amber-300" : "text-zinc-400"}`}>
               app {APP_VERSION} · ext {extensionVersion}
@@ -614,7 +614,7 @@ export default function App() {
               {" "}Parsed list ID: {pendingSync.warning.list_id}. This payload has {pendingSync.warning.incoming_count} rows ({pendingSync.warning.incoming_unique_count} unique, {pendingSync.warning.duplicate_count} duplicates),
               a {pendingSync.warning.percent_change}% change.
             </p>
-            <p className="mt-1">Confirm only if that count makes sense for this list. Otherwise cancel, reload the extension, and open the exact list again from gmaplists.</p>
+            <p className="mt-1">Confirm only if that count makes sense for this list. Otherwise cancel, reload the extension, and open the exact list again from GMapLists.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={confirmPendingSync} className="rounded-md bg-amber-900 px-3 py-2 text-xs font-bold text-white dark:bg-amber-200 dark:text-amber-950">
                 Confirm sync anyway
@@ -669,7 +669,7 @@ export default function App() {
           <div className="flex min-h-[calc(100vh-80px)] items-center justify-center py-8">
             <form onSubmit={signIn} className="grid w-full max-w-md gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
               <div>
-                <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to gmaplists</h1>
+                <h1 className="text-lg font-semibold text-zinc-950 dark:text-white">Sign in to GMapLists</h1>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Email magic link only. Sync is disabled while signed out.</p>
               </div>
               <label htmlFor="email" className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
