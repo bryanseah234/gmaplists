@@ -329,6 +329,7 @@ describe("gmaplistStore resync behavior", () => {
       received_count: 3,
       unique_count: 2,
       removed_count: 0,
+      duplicate_feature_ids: [{ feature_id: "feature-a", positions: [0, 2] }],
     });
     expect(mockDb.tables.places.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);
     expect(mockDb.tables.list_items.filter((row) => row.feature_id === "feature-a")).toHaveLength(1);

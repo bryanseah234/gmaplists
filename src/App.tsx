@@ -24,15 +24,11 @@ type Theme = "light" | "dark" | "system";
 
 const THEME_STORAGE_KEY = "maplist-theme";
 const SELECTED_LIST_STORAGE_KEY = "gmaplist-selected-list";
-const SYNC_ATTEMPT_STORAGE_KEY = "gmaplists-sync-attempt";
-const PROCESSED_PAYLOAD_STORAGE_KEY = "gmaplists-processed-payload";
-const APP_REQUEST_LATEST_TYPE = "GMAPLIST_APP_REQUEST_LATEST";
 
 type IncomingMapsPayload = {
   data: unknown;
   meta?: unknown;
   diagnostics?: unknown;
-  capturedAt?: number;
 };
 
 type ExtensionStatus = {
@@ -48,15 +44,6 @@ type ExtensionLogEntry = {
   details?: unknown;
   capturedAt?: number;
   pageUrl?: string;
-};
-
-type PersistedSyncAttempt = {
-  status: "in_progress" | "failed";
-  list_id: string;
-  list_title: string;
-  started_at: string;
-  updated_at: string;
-  message?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -87,7 +74,6 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
       data: message.data,
       meta: message.meta,
       diagnostics: message.diagnostics,
-      capturedAt: typeof message.capturedAt === "number" ? message.capturedAt : undefined,
     };
   }
 
@@ -96,35 +82,10 @@ function normalizeIncomingMapsPayload(message: unknown): IncomingMapsPayload | n
       data: message.payload.data,
       meta: message.payload.meta,
       diagnostics: message.payload.diagnostics,
-      capturedAt: typeof message.payload.capturedAt === "number" ? message.payload.capturedAt : undefined,
     };
   }
 
   return null;
-}
-
-function loadPersistedSyncAttempt(): PersistedSyncAttempt | null {
-  const raw = readStorage(SYNC_ATTEMPT_STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<PersistedSyncAttempt>;
-    if ((parsed.status === "in_progress" || parsed.status === "failed") && parsed.list_id && parsed.list_title && parsed.started_at && parsed.updated_at) {
-      return parsed as PersistedSyncAttempt;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function writePersistedSyncAttempt(attempt: PersistedSyncAttempt): void {
-  writeStorage(SYNC_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
-}
-
-function getStringDiagnostic(diagnostics: unknown, key: string): string | undefined {
-  if (!isRecord(diagnostics)) return undefined;
-  const value = diagnostics[key];
-  return typeof value === "string" && value ? value : undefined;
 }
 
 function normalizeExtensionLogs(message: unknown): ExtensionLogEntry[] | null {
@@ -156,9 +117,8 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
   const [_extensionLogs, setExtensionLogs] = useState<ExtensionLogEntry[]>([]);
-  const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning; payloadKey?: string } | null>(null);
+  const [pendingSync, setPendingSync] = useState<{ data: ExtractedData; warning: SyncCountWarning } | null>(null);
   const [syncingListId, setSyncingListId] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<PersistedSyncAttempt | null>(() => loadPersistedSyncAttempt());
   const syncInFlightRef = useRef<string | null>(null);
 
   const [theme, setTheme] = useState<Theme>(() =>
@@ -267,11 +227,6 @@ export default function App() {
     refreshLists().catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [session]);
 
-  useEffect(() => {
-    if (!session) return;
-    window.postMessage({ type: APP_REQUEST_LATEST_TYPE }, window.location.origin);
-  }, [session]);
-
   const signIn = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -303,7 +258,7 @@ export default function App() {
     await supabase?.auth.signOut();
   };
 
-  const ingestData = useCallback(async (result: ExtractedData, payloadKey?: string): Promise<boolean> => {
+  const ingestData = useCallback(async (result: ExtractedData): Promise<boolean> => {
     try {
       if (!session) {
         setError("Sign in before syncing. The captured Maps payload was not saved.");
@@ -317,39 +272,16 @@ export default function App() {
       setSyncingListId(result.list_id);
       const warning = await getSyncCountWarning(result);
       if (warning) {
-        setPendingSync({ data: result, warning, payloadKey });
+        setPendingSync({ data: result, warning });
         setError(null);
         return false;
       }
-      const attempt: PersistedSyncAttempt = {
-        status: "in_progress",
-        list_id: result.list_id,
-        list_title: result.list_title,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      writePersistedSyncAttempt(attempt);
-      setSyncNotice(attempt);
       const resultSummary = await syncListToSupabase(result);
-      writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
-      setSyncNotice(null);
       setSyncSummary(resultSummary);
       await refreshLists(result.list_id);
       return true;
     } catch (err) {
       const message = formatError(err, "Sync");
-      if (result.list_id) {
-        const failedAttempt: PersistedSyncAttempt = {
-          status: "failed",
-          list_id: result.list_id,
-          list_title: result.list_title,
-          started_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          message,
-        };
-        writePersistedSyncAttempt(failedAttempt);
-        setSyncNotice(failedAttempt);
-      }
       setError(message);
       return false;
     } finally {
@@ -368,34 +300,12 @@ export default function App() {
     syncInFlightRef.current = pendingSync.data.list_id;
     setSyncingListId(pendingSync.data.list_id);
     try {
-      const attempt: PersistedSyncAttempt = {
-        status: "in_progress",
-        list_id: pendingSync.data.list_id,
-        list_title: pendingSync.data.list_title,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      writePersistedSyncAttempt(attempt);
-      setSyncNotice(attempt);
       const resultSummary = await syncListToSupabase(pendingSync.data);
-      writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
-      setSyncNotice(null);
       setSyncSummary(resultSummary);
       await refreshLists(pendingSync.data.list_id);
-      if (pendingSync.payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, pendingSync.payloadKey);
       setPendingSync(null);
     } catch (err) {
       const message = formatError(err, "Confirmed sync");
-      const failedAttempt: PersistedSyncAttempt = {
-        status: "failed",
-        list_id: pendingSync.data.list_id,
-        list_title: pendingSync.data.list_title,
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        message,
-      };
-      writePersistedSyncAttempt(failedAttempt);
-      setSyncNotice(failedAttempt);
       setError(message);
     } finally {
       syncInFlightRef.current = null;
@@ -448,8 +358,6 @@ export default function App() {
 
         const incoming = normalizeIncomingMapsPayload(msg);
         if (!incoming) return;
-        const payloadKey = incoming.capturedAt ? String(incoming.capturedAt) : "";
-        if (payloadKey && readStorage(PROCESSED_PAYLOAD_STORAGE_KEY) === payloadKey) return;
         setIsReceiving(false);
         setIsLoading(true);
         setError(null);
@@ -458,14 +366,7 @@ export default function App() {
         worker.onmessage = async (workerEvent) => {
           if (workerEvent.data.action === "PARSE_COMPLETE") {
             try {
-              const expectedListId = getStringDiagnostic(incoming.diagnostics, "intentListId");
-              const parsedListId = typeof workerEvent.data.data?.list_id === "string" ? workerEvent.data.data.list_id : "";
-              if (expectedListId && parsedListId && expectedListId !== parsedListId) {
-                setError(`Captured payload belongs to a different Google Maps list. Expected ${expectedListId}, got ${parsedListId}. Nothing was written.`);
-                return;
-              }
-              const handled = await ingestData(workerEvent.data.data, payloadKey);
-              if (handled && payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, payloadKey);
+              await ingestData(workerEvent.data.data);
               pushListUrl(workerEvent.data.data.list_id);
             } finally {
               setIsLoading(false);
@@ -626,29 +527,6 @@ export default function App() {
           </div>
         )}
 
-        {syncNotice && (
-          <div className="mb-4 rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900 shadow-sm dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-100">
-            <p className="font-bold">
-              {syncNotice.status === "in_progress" ? "Previous sync may have been interrupted." : "Previous sync failed."}
-            </p>
-            <p className="mt-1">
-              {syncNotice.list_title} ({syncNotice.list_id}) started at {new Date(syncNotice.started_at).toLocaleString()}.
-              {syncNotice.status === "in_progress"
-                ? " If you closed or reloaded the tab during sync, rerun the sync from the extension/app to confirm the database state."
-                : ` ${syncNotice.message ?? "Rerun sync after fixing the issue."}`}
-            </p>
-            <button
-              onClick={() => {
-                writeStorage(SYNC_ATTEMPT_STORAGE_KEY, "");
-                setSyncNotice(null);
-              }}
-              className="mt-3 rounded-md border border-sky-400 px-3 py-2 text-xs font-bold text-sky-900 dark:border-sky-600 dark:text-sky-100"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {!authResolved ? (
           <div className="flex min-h-[calc(100vh-80px)] items-center justify-center py-8">
             <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
@@ -704,6 +582,14 @@ export default function App() {
             Synced {syncSummary.received_count} received · {syncSummary.unique_count} unique
             {syncSummary.received_count !== syncSummary.unique_count ? ` · ${syncSummary.received_count - syncSummary.unique_count} duplicate` : ""}
             {syncSummary.removed_count > 0 ? ` · ${syncSummary.removed_count} removed` : " · 0 removed"}
+            {syncSummary.duplicate_feature_ids.length > 0 && (
+              <div className="mt-1 text-left font-mono text-[10px] font-medium leading-snug">
+                Duplicates: {syncSummary.duplicate_feature_ids.slice(0, 4).map((item) =>
+                  `${item.feature_id} @ ${item.positions.join(",")}`
+                ).join(" · ")}
+                {syncSummary.duplicate_feature_ids.length > 4 ? ` · +${syncSummary.duplicate_feature_ids.length - 4} more` : ""}
+              </div>
+            )}
           </div>
         )}
       </main>

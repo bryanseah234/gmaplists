@@ -8,8 +8,7 @@
   const PUBLIC_STATUS_TYPE = "GMAPLIST_EXTENSION_STATUS";
   const PUBLIC_LOG_TYPE = "GMAPLIST_EXTENSION_LOGS";
   const APP_OPEN_MAPS_URL_TYPE = "GMAPLIST_APP_OPEN_MAPS_URL";
-  const APP_REQUEST_LATEST_TYPE = "GMAPLIST_APP_REQUEST_LATEST";
-  const EXTENSION_VERSION = "0.1.15";
+  const EXTENSION_VERSION = "0.1.16";
 
   let reconnectAttempt = 0;
   let port = null;
@@ -151,11 +150,6 @@
 
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
-    if (event.data?.type === APP_REQUEST_LATEST_TYPE) {
-      requestLatest();
-      return;
-    }
-
     if (event.data?.type !== APP_OPEN_MAPS_URL_TYPE || typeof event.data.url !== "string") return;
 
     forwardOpenMapsRequest(event.data.url);

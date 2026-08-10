@@ -55,7 +55,10 @@ export type SyncResult = {
   received_count: number;
   unique_count: number;
   removed_count: number;
+  duplicate_feature_ids: Array<{ feature_id: string; positions: number[] }>;
 };
+
+type RpcSyncResult = Omit<SyncResult, "duplicate_feature_ids">;
 
 const staticTags = bundledTags as unknown as Record<string, StaticTagValue>;
 
@@ -105,6 +108,20 @@ function dedupePlacesByFeatureId(places: Place[]): Place[] {
     byFeatureId.set(place.feature_id, place);
   }
   return [...byFeatureId.values()];
+}
+
+function getDuplicateFeatureDiagnostics(places: Place[]): SyncResult["duplicate_feature_ids"] {
+  const byFeatureId = new Map<string, number[]>();
+  places.forEach((place, index) => {
+    if (!place.feature_id) return;
+    const positions = byFeatureId.get(place.feature_id) ?? [];
+    positions.push(index);
+    byFeatureId.set(place.feature_id, positions);
+  });
+
+  return [...byFeatureId.entries()]
+    .filter(([, positions]) => positions.length > 1)
+    .map(([feature_id, positions]) => ({ feature_id, positions }));
 }
 
 function assertAllPlacesHaveFeatureIds(places: Place[]): void {
@@ -187,7 +204,7 @@ async function syncListWithRpc(
   places: Place[],
   placeRows: ReturnType<typeof toPlaceRow>[],
   receivedCount: number,
-): Promise<SyncResult> {
+): Promise<RpcSyncResult> {
   if (typeof client.rpc !== "function") {
     throw new Error("Transactional sync RPC is unavailable. Reload the deployed app; do not use chunked fallback sync.");
   }
@@ -227,6 +244,7 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
   const receivedPlaceRows = data.places.map(toPlaceRow);
   assertPlaceRecordsContainNoContributorData(receivedPlaceRows);
   const places = dedupePlacesByFeatureId(data.places);
+  const duplicateFeatureIds = getDuplicateFeatureDiagnostics(data.places);
 
   const syncResult = await syncListWithRpc(client, data, data.places, receivedPlaceRows, data.places.length);
 
@@ -249,7 +267,7 @@ export async function syncListToSupabase(data: { list_id: string; list_title: st
     if (error) throw error;
   }
 
-  return syncResult;
+  return { ...syncResult, duplicate_feature_ids: duplicateFeatureIds };
 }
 
 export async function getSyncCountWarning(data: { list_id: string; list_title: string; places: Place[] }): Promise<SyncCountWarning | null> {

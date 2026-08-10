@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GMapLists parser companion",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Extract Google Maps saved lists into the GMapLists web app.",
   "permissions": [
     "activeTab",

@@ -8,15 +8,13 @@ const LATEST_PAYLOAD_KEY = "gmaplistsLatestPayload";
 const LATEST_STATUS_KEY = "gmaplistsLatestStatus";
 const LAST_REDIRECT_KEY = "gmaplistsLastRedirect";
 const DEBUG_LOGS_KEY = "gmaplistsDebugLogs";
-const CAPTURE_INTENT_KEY = "gmaplistsCaptureIntent";
 const MAX_DEBUG_LOGS = 200;
 const LIST_ENDPOINT = "/maps/preview/entitylist/getlist";
 const ACTIVE_PAGE_DELAY_MS = 350;
 const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
-const CAPTURE_INTENT_TTL_MS = 5 * 60 * 1000;
 const CONTRIBUTOR_INDEX = 12;
-const EXTENSION_VERSION = "0.1.15";
+const EXTENSION_VERSION = "0.1.16";
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
@@ -205,16 +203,6 @@ function getExtractionKey(url) {
   return extractListId(url) || buildListPageUrl(url, null);
 }
 
-function getPayloadListId(data) {
-  const value = data?.[0]?.[0]?.[0];
-  return typeof value === "string" && value ? value : null;
-}
-
-function getPayloadListTitle(data) {
-  const value = data?.[0]?.[4];
-  return typeof value === "string" && value ? value : "Google Maps list";
-}
-
 function featureIdFromListPlace(place) {
   const ids = place?.[1]?.[6];
   if (!Array.isArray(ids) || ids.length < 2) return null;
@@ -350,55 +338,6 @@ async function fetchAllListPlaces(getlistUrl) {
   return { firstData, allPlaces, total };
 }
 
-function getStored(keys) {
-  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-}
-
-function setStored(values) {
-  return new Promise((resolve) => chrome.storage.local.set(values, resolve));
-}
-
-function removeStored(keys) {
-  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
-}
-
-async function validateCaptureIntent(getlistUrl, tabId) {
-  const observedListId = extractListId(getlistUrl);
-  const stored = await getStored(CAPTURE_INTENT_KEY);
-  const intent = stored[CAPTURE_INTENT_KEY];
-
-  if (!intent || Date.now() - Number(intent.createdAt || 0) > CAPTURE_INTENT_TTL_MS) {
-    addDebugLog("warn", "Ignored getlist without active capture intent", summarizeUrl(getlistUrl));
-    broadcastStatus("ignored", "Ignored a Maps list request because no capture was started from GMapLists. Open the list from the app or extension popup, then try again.", {
-      ...summarizeUrl(getlistUrl),
-      observedTabId: tabId,
-    });
-    return false;
-  }
-
-  if (typeof intent.tabId === "number" && typeof tabId === "number" && tabId >= 0 && intent.tabId !== tabId) {
-    addDebugLog("warn", "Ignored getlist from non-intended tab", { intent, observedTabId: tabId, observedListId });
-    broadcastStatus("ignored", "Ignored a Maps list request from a different tab than the one GMapLists opened.", {
-      expectedTabId: intent.tabId,
-      observedTabId: tabId,
-      expectedListId: intent.listId,
-      observedListId,
-    });
-    return false;
-  }
-
-  if (intent.listId && observedListId && intent.listId !== observedListId) {
-    addDebugLog("warn", "Ignored getlist for unexpected list", { expectedListId: intent.listId, observedListId });
-    broadcastStatus("ignored", "Ignored a Maps list request for a different saved list than the one you opened from GMapLists.", {
-      expectedListId: intent.listId,
-      observedListId,
-    });
-    return false;
-  }
-
-  return true;
-}
-
 function storeAndBroadcastPayload(payload) {
   const sanitized = sanitizePayload(payload);
   return new Promise((resolve, reject) => {
@@ -417,30 +356,13 @@ function storeAndBroadcastPayload(payload) {
 async function runBackgroundExtraction(getlistUrl, tabId) {
   try {
     clearLatestPayload();
-    const intent = (await getStored(CAPTURE_INTENT_KEY))[CAPTURE_INTENT_KEY];
-    addDebugLog("info", "Background extraction started", { ...summarizeUrl(getlistUrl), tabId, intent });
-    broadcastStatus("loading", "Google Maps list detected from the intended tab. Extracting places...", { ...summarizeUrl(getlistUrl), tabId, intent });
+    addDebugLog("info", "Background extraction started", { ...summarizeUrl(getlistUrl), tabId });
+    broadcastStatus("loading", "Google Maps list detected. Extracting places...", { ...summarizeUrl(getlistUrl), tabId });
     const { firstData, allPlaces, total } = await fetchAllListPlaces(getlistUrl);
 
     if (!firstData || allPlaces.length === 0) {
       addDebugLog("warn", "Background extraction found no places");
       broadcastStatus("no_places", "Google Maps list detected, but no places were returned.");
-      return;
-    }
-
-    const payloadListId = getPayloadListId(firstData);
-    const payloadListTitle = getPayloadListTitle(firstData);
-    if (intent?.listId && payloadListId && intent.listId !== payloadListId) {
-      addDebugLog("warn", "Refused payload for unexpected parsed list", {
-        expectedListId: intent.listId,
-        payloadListId,
-        payloadListTitle,
-      });
-      broadcastStatus("error", "Captured payload belongs to a different Google Maps list. Nothing was sent to the app.", {
-        expectedListId: intent.listId,
-        payloadListId,
-        payloadListTitle,
-      });
       return;
     }
 
@@ -459,19 +381,15 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
         uniqueFeatureIdCount: duplicateDiagnostics.uniqueFeatureIdCount,
         duplicateFeatureIdCount: duplicateDiagnostics.duplicateFeatureIdCount,
         duplicateFeatureIds: duplicateDiagnostics.duplicateFeatureIds,
-        payloadListId,
-        payloadListTitle,
         total,
         metaCount: allPlaces.length,
         tabId,
-        intentListId: intent?.listId || null,
         source: "webRequest-observed-getlist",
         extensionVersion: EXTENSION_VERSION,
       },
     };
 
     await storeAndBroadcastPayload(payload);
-    await removeStored(CAPTURE_INTENT_KEY);
     lastCompletedExtractionKey = getExtractionKey(getlistUrl);
     lastCompletedExtractionAt = Date.now();
     broadcastStatus("payload", `Extracted ${allPlaces.length} Google Maps places.`, payload.diagnostics);
@@ -488,8 +406,6 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
 }
 
 async function scheduleBackgroundExtraction(getlistUrl, tabId) {
-  if (!(await validateCaptureIntent(getlistUrl, tabId))) return;
-
   const normalizedUrl = buildListPageUrl(getlistUrl, null);
   const extractionKey = getExtractionKey(normalizedUrl);
   const recentlyCompleted = (
@@ -526,27 +442,13 @@ chrome.webRequest.onBeforeRedirect.addListener(
     const listId = extractListId(redirectUrl);
     if (!listId) return;
 
-    chrome.storage.local.get(CAPTURE_INTENT_KEY, (stored) => {
-      const intent = stored[CAPTURE_INTENT_KEY];
-      const next = {
-        [LAST_REDIRECT_KEY]: {
-          listId,
-          shortUrl: details.url,
-          redirectUrl,
-          capturedAt: Date.now(),
-        },
-      };
-
-      if (intent?.url === details.url || intent?.tabId === details.tabId) {
-        next[CAPTURE_INTENT_KEY] = {
-          ...intent,
-          listId,
-          redirectUrl,
-          updatedAt: Date.now(),
-        };
-      }
-
-      chrome.storage.local.set(next);
+    chrome.storage.local.set({
+      [LAST_REDIRECT_KEY]: {
+        listId,
+        shortUrl: details.url,
+        redirectUrl,
+        capturedAt: Date.now(),
+      },
     });
 
     addDebugLog("info", "Stored short URL redirect", { listId, redirectUrl });
@@ -653,22 +555,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return false;
       }
 
-      chrome.tabs.create({ url: "about:blank", active: true }, async (tab) => {
+      chrome.tabs.create({ url: url.href, active: true }, (tab) => {
         if (tab?.windowId != null) chrome.windows.update(tab.windowId, { focused: true });
         clearLatestPayload();
-        const intent = {
-          tabId: tab?.id,
-          listId: extractListId(url.href),
-          url: url.href,
-          createdAt: Date.now(),
-          source: "open-maps-url",
-        };
-        await setStored({ [CAPTURE_INTENT_KEY]: intent });
-        if (tab?.id != null) {
-          await chrome.tabs.update(tab.id, { url: url.href, active: true });
-        }
         addDebugLog("info", "Opened Maps tab from extension popup", { url: url.href });
-        broadcastStatus("loading", "Opened Google Maps list tab. Waiting for that tab's list request...", intent);
+        broadcastStatus("loading", "Opened Google Maps list tab. Waiting for list request...", { url: url.href });
         sendResponse({ ok: true });
       });
       return true;

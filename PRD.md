@@ -15,7 +15,7 @@ The product goal is to remove judgment from the mobile tagging session. GMapList
 
 ## 3. System Architecture
 
-- **Desktop Chrome extension (`extension/`)**: Captures one Google Maps saved list by observing `/maps/preview/entitylist/getlist` after an app or popup-initiated capture intent, strips contributor profile data at row index `[12]`, and forwards the stripped payload to the web app.
+- **Desktop Chrome extension (`extension/`)**: Captures one Google Maps saved list by observing `/maps/preview/entitylist/getlist`, strips contributor profile data at row index `[12]`, and forwards the stripped payload to the web app.
 - **Parser worker (`src/services/parser.worker.ts`)**: Parses the stripped getlist payload off the main thread. Parsed places start as `Unsorted`; category resolution happens later in one store path.
 - **Supabase data store (`src/services/gmaplistStore.ts`, `supabase/migrations/`)**: Persists lists, place cache rows, list membership, stored classifications, manual overrides, and per-list progress.
 - **Mobile queue (`src/components/Places/WorkQueueView.tsx`)**: Primary user surface. It shows unfinished places grouped by category in small batches, opens each place in Google Maps, and lets the user mark it done after tagging in Maps.
