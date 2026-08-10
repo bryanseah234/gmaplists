@@ -74,7 +74,7 @@ function detailLine(place: Place): string {
     place.review_count ? `${place.review_count.toLocaleString()} reviews` : null,
     place.price_level,
   ].filter(Boolean);
-  return details.length > 0 ? details.join(" · ") : "Google rating/reviews/category not present in captured list data";
+  return details.length > 0 ? details.join(" · ") : "";
 }
 
 function sourceLabel(place: Place): string {
@@ -267,16 +267,17 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 pb-20">
-      <section className="sticky top-12 z-30 -mx-3 border-b border-zinc-200 bg-zinc-50/95 px-3 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+    <div className="mx-auto grid w-full max-w-7xl gap-4 pb-20 lg:grid-cols-[292px_minmax(0,1fr)]">
+      <aside className="grid gap-3 self-start lg:sticky lg:top-16">
+      <section className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <div className="min-w-0">
             <p className="truncate text-lg font-black text-zinc-950 dark:text-white">{selectedList?.name ?? "Google Maps list"}</p>
             <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
-              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{doneCount}/{places.length} done</span>
-              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{remaining.length} remain</span>
-              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{shownNow} visible</span>
-              <span className="rounded-full bg-white px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{selectedList?.unclassified_count ?? 0} unclassified</span>
+              <span className="rounded-full bg-zinc-50 px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">{doneCount}/{places.length} tagged</span>
+              <span className="rounded-full bg-zinc-50 px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">{remaining.length} left</span>
+              <span className="rounded-full bg-zinc-50 px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">{shownNow} visible</span>
+              <span className="rounded-full bg-zinc-50 px-2 py-1 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">{selectedList?.unclassified_count ?? 0} uncategorised</span>
             </div>
           </div>
           <select
@@ -295,7 +296,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progressPercent}%` }} />
         </div>
-        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
           <Filter size={16} className="shrink-0 text-zinc-400" />
           {["All", ...CATEGORY_ORDER].map((category) => {
             const count = category === "All" ? remaining.length : countsByCategory[category] ?? 0;
@@ -330,8 +331,8 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
             className="min-w-0 flex-1 bg-transparent text-base text-zinc-950 outline-none dark:text-white"
           />
         </div>
-        <p className="mt-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-500">
-          Last synced: {formatDate(selectedList?.last_synced ?? null)} · Google ratings, reviews, and Google category are not in the saved-list payload.
+        <p className="mt-2 text-[11px] font-medium leading-relaxed text-zinc-500 dark:text-zinc-500">
+          Last synced: {formatDate(selectedList?.last_synced ?? null)}. Google rating, reviews, and Google category are not in this saved-list payload.
         </p>
       </section>
 
@@ -396,6 +397,9 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
           </div>
         )}
       </section>
+      </aside>
+
+      <main className="min-w-0 space-y-3">
 
       {CATEGORY_ORDER.map((category) => {
         const items = grouped[category].slice(0, BATCH_SIZE);
@@ -405,11 +409,11 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
 
         return (
           <section key={category} className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="sticky top-[174px] z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
               <h2 className="text-sm font-black text-zinc-950 dark:text-white">{category}</h2>
               <span className="text-xs font-semibold text-zinc-500">{grouped[category].length} remain · showing {items.length}</span>
             </div>
-            <div className="grid gap-2 p-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 p-2">
               {items.map((place) => {
                 const featureId = place.feature_id;
                 const isRowBusy = Boolean(featureId && rowBusy[featureId]);
@@ -418,7 +422,7 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
                 <article
                   key={featureId ?? place.place_name}
                   id={featureId ? placeElementId(featureId) : undefined}
-                  className={`grid min-h-52 content-between gap-2 rounded-lg border p-3 ${
+                  className={`grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(0,1fr)_260px] md:items-start ${
                     featureId && queueState.currentFeatureId === featureId
                       ? "border-blue-400 bg-blue-50 shadow-sm dark:border-blue-600 dark:bg-blue-950/30"
                       : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950"
@@ -441,28 +445,26 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
                         Note: {place.user_notes}
                       </p>
                     )}
-                    <div className="flex flex-wrap gap-1.5 text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{sourceLabel(place)}</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{place.resolved_confidence ?? "low"} confidence</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">{detailLine(place)}</span>
-                    </div>
+                    <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-500">
+                      {sourceLabel(place)} suggestion · {place.resolved_confidence ?? "low"} confidence{detailLine(place) ? ` · ${detailLine(place)}` : ""}
+                    </p>
                     {place.resolved_reason && (
                       <p className="line-clamp-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-500">{place.resolved_reason}</p>
                     )}
                   </div>
                   <div className="grid gap-2">
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                       <a onClick={() => markCurrentPlace(featureId)} href={mapsLink(place)} target="_blank" rel="noreferrer" className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-black text-white shadow-sm" title="Open in Google Maps">
                         <ExternalLink size={16} />
                         Open Maps
                       </a>
                       <button
                         disabled={isRowBusy}
-                        onClick={() => runRowAction(featureId, "done", (id) => onDoneChange(id, true))}
+                        onClick={() => runRowAction(featureId, "tagged", (id) => onDoneChange(id, true))}
                         className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-black text-white shadow-sm disabled:cursor-wait disabled:opacity-60"
                       >
                         {isRowBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                        {rowBusy[featureId ?? ""] === "done" ? "Saving" : "Done"}
+                        {rowBusy[featureId ?? ""] === "tagged" ? "Saving" : "Tagged in Maps"}
                       </button>
                     </div>
                     <select
@@ -491,13 +493,14 @@ export const WorkQueueView: React.FC<WorkQueueViewProps> = ({
       {!hasVisibleWork && (
         <section className="rounded-lg border border-zinc-200 bg-white p-5 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-sm font-bold text-zinc-950 dark:text-white">
-            {remaining.length === 0 ? "All done for this list." : "No places match this filter."}
+            {remaining.length === 0 ? "All tagged for this list." : "No places match this filter."}
           </p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {remaining.length === 0 ? "Switch lists or sync again when Google Maps changes." : "Clear search or switch category."}
           </p>
         </section>
       )}
+      </main>
     </div>
   );
 };

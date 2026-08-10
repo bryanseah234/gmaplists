@@ -9,7 +9,7 @@
   const PUBLIC_LOG_TYPE = "GMAPLIST_EXTENSION_LOGS";
   const APP_OPEN_MAPS_URL_TYPE = "GMAPLIST_APP_OPEN_MAPS_URL";
   const APP_REQUEST_LATEST_TYPE = "GMAPLIST_APP_REQUEST_LATEST";
-  const EXTENSION_VERSION = "0.1.14";
+  const EXTENSION_VERSION = "0.1.15";
 
   let reconnectAttempt = 0;
   let port = null;

@@ -16,7 +16,7 @@ const ACTIVE_MAX_PAGES = 200;
 const RECENT_EXTRACTION_TTL_MS = 60000;
 const CAPTURE_INTENT_TTL_MS = 5 * 60 * 1000;
 const CONTRIBUTOR_INDEX = 12;
-const EXTENSION_VERSION = "0.1.14";
+const EXTENSION_VERSION = "0.1.15";
 
 const appPorts = new Set();
 let backgroundExtractionPromise = null;
@@ -37,11 +37,18 @@ function serializeDetails(details) {
 
 function broadcastToApps(message) {
   for (const port of appPorts) {
-    try {
-      port.postMessage(message);
-    } catch {
-      appPorts.delete(port);
-    }
+    safePostToPort(port, message);
+  }
+}
+
+function safePostToPort(port, message) {
+  if (!appPorts.has(port)) return false;
+  try {
+    port.postMessage(message);
+    return true;
+  } catch {
+    appPorts.delete(port);
+    return false;
   }
 }
 
@@ -196,6 +203,16 @@ function summarizeUrl(url) {
 
 function getExtractionKey(url) {
   return extractListId(url) || buildListPageUrl(url, null);
+}
+
+function getPayloadListId(data) {
+  const value = data?.[0]?.[0]?.[0];
+  return typeof value === "string" && value ? value : null;
+}
+
+function getPayloadListTitle(data) {
+  const value = data?.[0]?.[4];
+  return typeof value === "string" && value ? value : "Google Maps list";
 }
 
 function featureIdFromListPlace(place) {
@@ -411,6 +428,22 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
       return;
     }
 
+    const payloadListId = getPayloadListId(firstData);
+    const payloadListTitle = getPayloadListTitle(firstData);
+    if (intent?.listId && payloadListId && intent.listId !== payloadListId) {
+      addDebugLog("warn", "Refused payload for unexpected parsed list", {
+        expectedListId: intent.listId,
+        payloadListId,
+        payloadListTitle,
+      });
+      broadcastStatus("error", "Captured payload belongs to a different Google Maps list. Nothing was sent to the app.", {
+        expectedListId: intent.listId,
+        payloadListId,
+        payloadListTitle,
+      });
+      return;
+    }
+
     const duplicateDiagnostics = getDuplicateDiagnostics(allPlaces);
     const payload = {
       type: "GMAPLIST_DATA",
@@ -426,6 +459,8 @@ async function runBackgroundExtraction(getlistUrl, tabId) {
         uniqueFeatureIdCount: duplicateDiagnostics.uniqueFeatureIdCount,
         duplicateFeatureIdCount: duplicateDiagnostics.duplicateFeatureIdCount,
         duplicateFeatureIds: duplicateDiagnostics.duplicateFeatureIds,
+        payloadListId,
+        payloadListTitle,
         total,
         metaCount: allPlaces.length,
         tabId,
@@ -491,13 +526,27 @@ chrome.webRequest.onBeforeRedirect.addListener(
     const listId = extractListId(redirectUrl);
     if (!listId) return;
 
-    chrome.storage.local.set({
-      [LAST_REDIRECT_KEY]: {
-        listId,
-        shortUrl: details.url,
-        redirectUrl,
-        capturedAt: Date.now(),
-      },
+    chrome.storage.local.get(CAPTURE_INTENT_KEY, (stored) => {
+      const intent = stored[CAPTURE_INTENT_KEY];
+      const next = {
+        [LAST_REDIRECT_KEY]: {
+          listId,
+          shortUrl: details.url,
+          redirectUrl,
+          capturedAt: Date.now(),
+        },
+      };
+
+      if (intent?.url === details.url || intent?.tabId === details.tabId) {
+        next[CAPTURE_INTENT_KEY] = {
+          ...intent,
+          listId,
+          redirectUrl,
+          updatedAt: Date.now(),
+        };
+      }
+
+      chrome.storage.local.set(next);
     });
 
     addDebugLog("info", "Stored short URL redirect", { listId, redirectUrl });
@@ -538,7 +587,7 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener((message) => {
     if (message?.type === "GMAPLIST_GET_DEBUG_LOGS") {
       chrome.storage.local.get(DEBUG_LOGS_KEY, (stored) => {
-        port.postMessage({
+        safePostToPort(port, {
           type: RUNTIME_LOGS_TYPE,
           logs: Array.isArray(stored[DEBUG_LOGS_KEY]) ? stored[DEBUG_LOGS_KEY] : [],
         });
@@ -551,9 +600,9 @@ chrome.runtime.onConnect.addListener((port) => {
     chrome.storage.local.get([LATEST_PAYLOAD_KEY, LATEST_STATUS_KEY], (stored) => {
       const payload = stored[LATEST_PAYLOAD_KEY];
       if (payload) {
-        port.postMessage({ type: RUNTIME_DATA_TYPE, payload });
+        safePostToPort(port, { type: RUNTIME_DATA_TYPE, payload });
       } else {
-        port.postMessage(stored[LATEST_STATUS_KEY] || {
+        safePostToPort(port, stored[LATEST_STATUS_KEY] || {
           type: RUNTIME_STATUS_TYPE,
           status: "no_payload",
           message: "Extension connected; no Maps payload captured yet.",

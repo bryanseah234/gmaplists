@@ -121,6 +121,12 @@ function writePersistedSyncAttempt(attempt: PersistedSyncAttempt): void {
   writeStorage(SYNC_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
 }
 
+function getStringDiagnostic(diagnostics: unknown, key: string): string | undefined {
+  if (!isRecord(diagnostics)) return undefined;
+  const value = diagnostics[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
 function normalizeExtensionLogs(message: unknown): ExtensionLogEntry[] | null {
   if (!isRecord(message) || message.type !== "GMAPLIST_EXTENSION_LOGS") return null;
 
@@ -452,6 +458,12 @@ export default function App() {
         worker.onmessage = async (workerEvent) => {
           if (workerEvent.data.action === "PARSE_COMPLETE") {
             try {
+              const expectedListId = getStringDiagnostic(incoming.diagnostics, "intentListId");
+              const parsedListId = typeof workerEvent.data.data?.list_id === "string" ? workerEvent.data.data.list_id : "";
+              if (expectedListId && parsedListId && expectedListId !== parsedListId) {
+                setError(`Captured payload belongs to a different Google Maps list. Expected ${expectedListId}, got ${parsedListId}. Nothing was written.`);
+                return;
+              }
               const handled = await ingestData(workerEvent.data.data, payloadKey);
               if (handled && payloadKey) writeStorage(PROCESSED_PAYLOAD_STORAGE_KEY, payloadKey);
               pushListUrl(workerEvent.data.data.list_id);
@@ -598,11 +610,11 @@ export default function App() {
             <p className="mt-1">
               {pendingSync.warning.previous_count > 0
                 ? `Last successful sync for ${pendingSync.warning.list_title} had ${pendingSync.warning.previous_count} active places.`
-                : `There is no previous successful sync for ${pendingSync.warning.list_title}, and this first payload is unusually large.`}
-              This payload has {pendingSync.warning.incoming_count} places ({pendingSync.warning.incoming_unique_count} unique, {pendingSync.warning.duplicate_count} duplicates),
+                : `This is the first sync for ${pendingSync.warning.list_title}, but the payload is unusually large and may be a broad Saved/all-places capture.`}
+              {" "}Parsed list ID: {pendingSync.warning.list_id}. This payload has {pendingSync.warning.incoming_count} rows ({pendingSync.warning.incoming_unique_count} unique, {pendingSync.warning.duplicate_count} duplicates),
               a {pendingSync.warning.percent_change}% change.
             </p>
-            <p className="mt-1">If you intentionally changed the list this much, confirm. Otherwise reload the extension, click through Saved → the exact list again, and cancel this sync.</p>
+            <p className="mt-1">Confirm only if that count makes sense for this list. Otherwise cancel, reload the extension, and open the exact list again from gmaplists.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={confirmPendingSync} className="rounded-md bg-amber-900 px-3 py-2 text-xs font-bold text-white dark:bg-amber-200 dark:text-amber-950">
                 Confirm sync anyway
@@ -688,7 +700,7 @@ export default function App() {
           </div>
         )}
         {syncSummary && (
-          <div className="fixed bottom-3 left-3 right-3 mx-auto max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-800 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+          <div className="fixed bottom-3 left-3 right-3 z-50 mx-auto max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-800 shadow-lg md:left-auto md:right-4 md:mx-0 md:text-left dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
             Synced {syncSummary.received_count} received · {syncSummary.unique_count} unique
             {syncSummary.received_count !== syncSummary.unique_count ? ` · ${syncSummary.received_count - syncSummary.unique_count} duplicate` : ""}
             {syncSummary.removed_count > 0 ? ` · ${syncSummary.removed_count} removed` : " · 0 removed"}
