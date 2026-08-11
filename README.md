@@ -1,5 +1,10 @@
 # GMapLists
 
+Live demo: https://hongyime.github.io/gmaplists/
+
+![Project screenshot](./screenshot.png)
+
+
 GMapLists is a decision aid for tagging collaborative Google Maps saved lists.
 
 Google Maps stays the home of the real tags. I tag places in the Maps mobile app. This app exists because the web `getlist` payload contains the places in a saved list but does not contain Google's per-list tag data, and there is no known web RPC for writing those tags. GMapLists removes the judgment work: it suggests the category, opens the place in Maps, and lets me mark my own progress after I tag it manually.
