@@ -24,9 +24,16 @@ fixtures/
 *.sln
 *.sw?
 
+
 # AI / editor dot directories (managed via sourcerepo)
 .*
 !.github/
+!.agents/
+.agents/*
+!.agents/STATE.md
+!.agents/JOURNAL.md
+!.agents/handoffs/
+!.agents/handoffs/**
 !.gitignore
 !.gitattributes
 !.gitmodules
@@ -44,22 +51,12 @@ fixtures/
 !.npmrc
 !.yarnrc
 !.yarnrc.yml
-!.sourcery.yml
-!.deepsource.toml
-
-.vercel
-.env*
 !.env.example
 !.env.template
 !.env.sample
-.env
-.env.*
-node_modules/
-dist/
-build/
-.next/
-__pycache__/
-.pytest_cache/
-
-.vercel
-.env*
+!.sourcery.yml
+!.deepsource.toml
+skills/
+skills-lock.json
+docs/
+# End AI / editor dot directories (managed via sourcerepo)
