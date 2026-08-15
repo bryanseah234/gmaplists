@@ -10,5 +10,5 @@ Recent completed work:
 
 Next safe steps:
 - Tests and production build passed on 2026-08-15 after the latest remote config-sync commits.
-- Vercel project `gmaplists` latest production deployment was READY for commit `6975d38` when checked on 2026-08-15.
+- Vercel project `gmaplists` auto-deployed recent `main` commits successfully when checked on 2026-08-15; re-check Vercel before making production claims.
 - User planned to run a real sync next; do not add capture intent/list guard unless a current-code sync reproduces the wrong-count capture.
