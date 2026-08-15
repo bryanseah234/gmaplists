@@ -27,6 +27,8 @@ fixtures/
 
 # AI / editor dot directories (managed via sourcerepo)
 .*
+!.agents/
+!.agents/**
 !.github/
 !.agents/
 .agents/*
