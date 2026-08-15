@@ -1,6 +1,6 @@
 # GMapLists Agent State
 
-Current status: local source contains RPC-only sync and duplicate diagnostics. `origin/main` was observed at `6975d38` after fetch on 2026-08-15.
+Current status: local `main` and `origin/main` were pushed to `b8586fc` on 2026-08-15. Source contains RPC-only sync and duplicate diagnostics.
 
 Recent completed work:
 - Removed the chunked fallback sync path. `syncListToSupabase` now requires `sync_gmaplist` and fails loudly if the RPC is unavailable.
