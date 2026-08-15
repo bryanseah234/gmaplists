@@ -1,6 +1,6 @@
 # GMapLists Agent State
 
-Current status: local `main` and `origin/main` were pushed to `b8586fc` on 2026-08-15. Source contains RPC-only sync and duplicate diagnostics.
+Current status: local source contains RPC-only sync and duplicate diagnostics. Working tree has only this state update pending.
 
 Recent completed work:
 - Removed the chunked fallback sync path. `syncListToSupabase` now requires `sync_gmaplist` and fails loudly if the RPC is unavailable.
@@ -9,6 +9,6 @@ Recent completed work:
 - Bumped app marker to `2026.08.10.3` and extension marker to `0.1.16`.
 
 Next safe steps:
-- Tests and production build passed on 2026-08-15 after the latest remote config-sync commits.
+- `npm audit --audit-level=moderate`, `npm test`, and `npm run build` passed on 2026-08-15.
 - Vercel project `gmaplists` auto-deployed recent `main` commits successfully when checked on 2026-08-15; re-check Vercel before making production claims.
 - User planned to run a real sync next; do not add capture intent/list guard unless a current-code sync reproduces the wrong-count capture.
